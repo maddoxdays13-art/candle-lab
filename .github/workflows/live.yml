@@ -1,25 +1,45 @@
 name: Live logger
 
+# Watchdog + manual logger. The "Live keeper" workflow does the logging every
+# 15 minutes; whenever GitHub runs this schedule, it makes sure the keeper is
+# alive and restarts it if not. Running this by hand logs once right away.
 on:
   schedule:
-    # Every 15 minutes, a few minutes after each candle closes.
-    # GitHub sometimes runs these late or skips one; the logger handles that.
     - cron: "2,17,32,47 * * * *"
   workflow_dispatch:
 
-# Never two at once. A queued run waits for the current one instead of overlapping.
 concurrency:
   group: live-logger
   cancel-in-progress: false
 
 permissions:
   contents: write
+  actions: write
 
 env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
+  watchdog:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Restart the keeper if it is not running
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          active=$(gh run list --workflow live-keeper.yml --limit 5 --json status --jq '[.[] | select(.status != "completed")] | length')
+          if [ "$active" = "0" ]; then
+            echo "Keeper not running - starting it."
+            gh workflow run live-keeper.yml --ref "${GITHUB_REF_NAME}"
+          else
+            echo "Keeper is running."
+          fi
+
   log:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

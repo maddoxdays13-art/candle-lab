@@ -1,0 +1,53 @@
+name: Live keeper
+
+# Runs the live logger on time, every 15 minutes, without relying on GitHub's
+# cron scheduler (which can be late or silent for hours, especially on new repos).
+# One run loops for ~5h45m, then starts the next run of itself. The "Live logger"
+# workflow acts as a watchdog and restarts this one if it ever stops.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: live-keeper
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write   # to start the next keeper run and the nightly experiment
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  keep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Log every 15 minutes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          end=$((SECONDS + 345 * 60))
+          while [ $SECONDS -lt $end ]; do
+            git pull -q --rebase origin "${GITHUB_REF_NAME}" || true   # latest code + champion settings
+            python -m candlelab.live || echo "logger failed this round; will retry next candle"
+            scripts/commit_and_push.sh "live: $(date -u +'%Y-%m-%d %H:%M') UTC" results/live docs/data/live.json || true
+
+            # Nightly experiment at 07:15-07:30 UTC, once per day (don't depend on cron for it either).
+            if [ "$(date -u +%H)" = "07" ] && [ "$(date -u +%M)" -ge 15 ] && [ "$(date -u +%M)" -lt 45 ]; then
+              ran=$(gh run list --workflow experiment.yml --created "$(date -u +%F)" --json databaseId --jq length || echo 1)
+              if [ "$ran" = "0" ]; then gh workflow run experiment.yml --ref "${GITHUB_REF_NAME}" && echo "started nightly experiment"; fi
+            fi
+
+            now=$(date +%s)
+            next=$(( (now / 900 + 1) * 900 + 75 ))   # 75 s after the next candle closes
+            [ $((SECONDS + next - now)) -ge $end ] && break
+            sleep $((next - now))
+          done
+      - name: Start the next keeper run
+        if: success() || failure()   # not when you cancel it on purpose
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run live-keeper.yml --ref "${GITHUB_REF_NAME}"

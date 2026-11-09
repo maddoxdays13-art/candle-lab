@@ -17,6 +17,14 @@ for i in 1 2 3 4 5 6; do
     echo "Pushed: $msg"
     exit 0
   fi
+  if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+    # Another run changed the same file. Drop this round's commit and resync;
+    # the next run re-logs anything missing (it never double-logs a candle).
+    git rebase --abort || true
+    git reset -q --hard "origin/${GITHUB_REF_NAME:-main}"
+    echo "Conflict with another run; resynced, skipping this commit." >&2
+    exit 1
+  fi
   echo "Push failed (attempt $i); retrying..."
   sleep $((i * 5))
 done
