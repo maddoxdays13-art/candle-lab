@@ -33,14 +33,14 @@ async function load(name) {
 
 function destroyCharts() { state.charts.forEach((c) => c.destroy()); state.charts = []; }
 
-Chart.defaults.color = "#a9b4c6";
-Chart.defaults.borderColor = "#263247";
-Chart.defaults.font.family = "system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+Chart.defaults.color = "#9A9DA4";
+Chart.defaults.borderColor = "#2B2D32";
+Chart.defaults.font.family = "Barlow, system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
 
 function lineChart(canvas, datasets, { yFmt = (v) => v + "%", refLine = null, xType = "time" } = {}) {
   const ann = refLine == null ? [] : [{
     label: refLine.label, data: datasets[0]?.data.map((p) => ({ x: p.x, y: refLine.y })) || [],
-    borderColor: "#6f7c92", borderDash: [4, 4], borderWidth: 1, pointRadius: 0, pointHitRadius: 0,
+    borderColor: "#5c5f66", borderDash: [4, 4], borderWidth: 1, pointRadius: 0, pointHitRadius: 0,
   }];
   const ch = new Chart(canvas, {
     type: "line",
@@ -51,7 +51,7 @@ function lineChart(canvas, datasets, { yFmt = (v) => v + "%", refLine = null, xT
       scales: {
         x: { type: "linear", ticks: { maxTicksLimit: 6, callback: (v) => xType === "date" ? new Date(v).toLocaleDateString([], { month: "short", day: "numeric", timeZone: "UTC" })
                : xType === "days" ? new Date(v * 1000).toLocaleDateString([], { year: "2-digit", month: "short", day: "numeric" }) : fmtTime(v) }, grid: { display: false } },
-        y: { ticks: { callback: yFmt }, grid: { color: "#1c2536" } },
+        y: { ticks: { callback: yFmt }, grid: { color: "#222428" } },
       },
       plugins: {
         legend: { labels: { boxWidth: 10, boxHeight: 10, usePointStyle: false } },
@@ -74,7 +74,7 @@ function verdict(vs) {
   if (!vs || vs.edge_pp == null) return `<span class="verdict meh">NOT ENOUGH DATA</span>`;
   if (vs.p_value < 0.05 && vs.edge_pp > 0) return `<span class="verdict yes">✓ KRONOS BEATS IT (p=${vs.p_value})</span>`;
   if (vs.p_value > 0.95) return `<span class="verdict no">✗ KRONOS IS WORSE</span>`;
-  return `<span class="verdict meh">≈ NO PROVEN EDGE (p=${vs.p_value})</span>`;
+  return `<span class="verdict luck">≈ NO PROVEN EDGE (p=${vs.p_value})</span>`;
 }
 
 function matchups(coinData) {
@@ -82,7 +82,7 @@ function matchups(coinData) {
   const cards = [`<div class="card"><div class="label">Kronos hit rate</div>
       <div class="big">${pct(k.hit_rate)}</div>
       <div class="sub">95% range ${pct(k.ci_low)} – ${pct(k.ci_high)} · ${num(k.calls)} calls</div>
-      ${!k.calls ? `<span class="verdict meh">NOT ENOUGH DATA</span>` : k.ci_low > 0.5 ? `<span class="verdict yes">✓ ABOVE 50%</span>` : k.ci_high < 0.5 ? `<span class="verdict no">✗ BELOW 50%</span>` : `<span class="verdict meh">COULD BE LUCK</span>`}</div>`];
+      ${!k.calls ? `<span class="verdict meh">NOT ENOUGH DATA</span>` : k.ci_low > 0.5 ? `<span class="verdict yes">✓ ABOVE 50%</span>` : k.ci_high < 0.5 ? `<span class="verdict no">✗ BELOW 50%</span>` : `<span class="verdict luck">COULD BE LUCK</span>`}</div>`];
   for (const m of MODELS.slice(1)) {
     const vs = coinData.kronos_vs[m.key];
     const s = coinData.models[m.key].summary;
@@ -103,7 +103,7 @@ function ciBar(s) {
 function scoreboard(coinData, pooled) {
   const rows = MODELS.map((m) => {
     const s = coinData.models[m.key].summary;
-    return `<tr><td><span class="swatch" style="background:${css(m.color)}"></span>${m.name}</td>
+    return `<tr style="--sc:${css(m.color)}"><td><span class="swatch" style="background:${css(m.color)}"></span>${m.name}</td>
       <td>${num(s.calls)}</td><td><b>${pct(s.hit_rate)}</b></td>
       <td>${pct(s.ci_low)} – ${pct(s.ci_high)}${ciBar(s)}</td>
       <td>${pct(s.coverage, 0)}</td>
@@ -170,7 +170,8 @@ function recentTable(rows) {
     <th>Kronos call</th><th>Conf.</th><th>Actual close</th><th>Kronos result</th><th>Momentum</th><th>Coin flip</th></tr></thead><tbody>
     ${r.map((x) => {
       const actualDir = x.actual_close == null ? null : x.actual_close > x.last_close ? "up" : "down";
-      return `<tr><td>${fmtTime(x.t)}</td><td>${esc(x.coin.replace("-USD", ""))}</td><td>${num(x.last_close)}</td>
+      const rc = x.kronos === "skip" || x.kronos_correct == null ? "" : x.kronos_correct ? "hit" : "miss";
+      return `<tr class="${rc}"><td>${fmtTime(x.t)}</td><td>${esc(x.coin.replace("-USD", ""))}</td><td>${num(x.last_close)}</td>
       <td>${x.pred_close == null ? "–" : num(+x.pred_close.toFixed(2))}</td><td>${dirPill(x.kronos)}</td>
       <td>${x.conf == null ? "–" : pct(x.conf, 0)}</td>
       <td>${x.actual_close == null ? "<span class='muted'>open</span>" : num(x.actual_close) + " " + (actualDir === "up" ? "▲" : "▼")}</td>
@@ -179,6 +180,13 @@ function recentTable(rows) {
       <td>${dirPill(x.coin_flip)} ${x.coin_flip_correct == null ? "" : x.coin_flip_correct ? "✓" : "✗"}</td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
+
+const HEADS = {
+  live: ["Live", "Predicting the 15-minute candle forming right now, scored when it closes"],
+  backtest: ["Backtest", "Walk-forward replay of history the model never trained on"],
+  experiments: ["Experiments", "Champion vs challengers, tested every night"],
+};
+const pageHead = (t) => `<div class="page-head"><h1>${HEADS[t][0]}</h1><p>${HEADS[t][1]}</p></div>`;
 
 function renderLive(d) {
   if (!d) return `<p class="pad muted">No live data yet. The logger writes data/live.json after its first run.</p>`;
@@ -287,9 +295,9 @@ async function render() {
   const main = $("#main");
   const d = await load(state.tab);
   try {
-    if (state.tab === "live") { main.innerHTML = renderLive(d); if (d) drawPerformanceCharts(d); }
-    if (state.tab === "backtest") { main.innerHTML = renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
-    if (state.tab === "experiments") { main.innerHTML = renderExperiments(d); drawExperimentChart(d); }
+    if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) drawPerformanceCharts(d); }
+    if (state.tab === "backtest") { main.innerHTML = pageHead("backtest") + renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
+    if (state.tab === "experiments") { main.innerHTML = pageHead("experiments") + renderExperiments(d); drawExperimentChart(d); }
   } catch (e) {
     console.error(e);
     main.innerHTML = `<p class="pad muted">Could not render this tab: ${esc(e.message)}</p>`;
