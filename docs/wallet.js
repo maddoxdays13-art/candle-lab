@@ -6,6 +6,9 @@
      the price is above or below where the window opened, compared with how much it usually moves in
      the time left. 1¢ spread each side and Kalshi's fee (0.07 × price × (1 − price)) on every buy and sell.
    - Settles on Coinbase's 15-minute candle: "Up" wins if it closes at or above where it opened.
+   - Or "Trade coins" like Robinhood/Coinbase: spend any part of the balance buying a coin at the live price,
+     sell whenever you want. The venue's fee is charged on the buy and on the sell. Regular accounts can't
+     profit from a drop (no shorting), so trading is buy-then-sell only.
    Everything is saved only in this browser. Nothing is real; nothing is sent anywhere. */
 (() => {
   const KEY = "candlelab-wallet";
@@ -18,11 +21,16 @@
   const $$ = (s) => document.querySelector(s);
   const usd = (x) => (x < 0 ? "−$" : "$") + Math.abs(x).toFixed(2);
 
-  let W = { balance: 0, lastClaim: null, claims: 0, bets: [] };
+  const TRADE_FEES = { robinhood: { name: "Robinhood", fee: 0.0095 }, coinbase: { name: "Coinbase", fee: 0.009 },
+                       best: { name: "Best case", fee: 0.001 } };
+  let W = { balance: 0, lastClaim: null, claims: 0, bets: [], positions: [] };
   try { W = { ...W, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch {}
+  W.positions ||= [];
   const saveW = () => { try { localStorage.setItem(KEY, JSON.stringify(W)); } catch {} };
 
-  const ui = { open: false, coin: "BTC-USD", side: "up", stake: 5, tab: "bet" };
+  const ui = { open: false, coin: "BTC-USD", side: "up", stake: 5, tab: "bet", mode: "predict", venue: "robinhood" };
+  try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + "-ui") || "{}"), { open: false, tab: "bet" }); } catch {}
+  const saveUi = () => { try { localStorage.setItem(KEY + "-ui", JSON.stringify({ mode: ui.mode, venue: ui.venue, coin: ui.coin, stake: ui.stake })); } catch {} };
   const mkt = {};  // coin -> {start, price, sigma, t, upBid, upAsk, updated}
 
   /* ---------- market model ---------- */
@@ -102,6 +110,29 @@
     saveW(); toast(`Sold for ${usd(proceeds)} (${usd(proceeds - b.cost)})`); draw();
   }
 
+  async function buyCoin() {
+    const coin = ui.coin, amt = Number(ui.stake), v = TRADE_FEES[ui.venue];
+    if (amt < 1) return toast("Minimum is $1.");
+    if (amt > W.balance + 1e-9) return toast("Not enough practice money. Claim your daily $100!");
+    const m = await refreshMarket(coin);
+    const qty = (amt * (1 - v.fee)) / m.price;
+    W.balance = +(W.balance - amt).toFixed(2);
+    W.positions.unshift({ id: Date.now(), coin, qty, cost: amt, entry: m.price, venue: ui.venue, fee: v.fee, openedAt: Date.now(), status: "open",
+                          kronos: kronosFor(coin, windowStart()) });
+    saveW(); toast(`Bought ${qty.toPrecision(4)} ${coin.replace("-USD", "")} for ${usd(amt)} (${v.name} fee ${usd(amt * v.fee)})`); draw();
+  }
+
+  async function sellCoin(id) {
+    const p = W.positions.find((x) => x.id === id);
+    if (!p || p.status !== "open") return;
+    const m = await refreshMarket(p.coin);
+    const proceeds = +(p.qty * m.price * (1 - p.fee)).toFixed(2);
+    W.balance = +(W.balance + proceeds).toFixed(2);
+    Object.assign(p, { status: "closed", proceeds, exit: m.price, closedAt: Date.now() });
+    saveW(); toast(`Sold ${p.coin.replace("-USD", "")} for ${usd(proceeds)} (${usd(proceeds - p.cost)})`); draw();
+  }
+  const posValue = (p) => (mkt[p.coin]?.price ? p.qty * mkt[p.coin].price * (1 - p.fee) : null);
+
   async function settle() {
     const now = Date.now() / 1000;
     let changed = false;
@@ -133,16 +164,20 @@
 
   function stats() {
     const done = W.bets.filter((b) => b.status !== "open");
+    const trades = W.positions.filter((p) => p.status === "closed");
     const net = done.reduce((a, b) => a + (b.proceeds - b.cost), 0);
     const staked = done.reduce((a, b) => a + b.cost, 0);
+    const tnet = trades.reduce((a, p) => a + (p.proceeds - p.cost), 0), tcost = trades.reduce((a, p) => a + p.cost, 0);
     return { wins: done.filter((b) => b.status === "won").length, losses: done.filter((b) => b.status === "lost").length,
-             sold: done.filter((b) => b.status === "sold").length, net, roi: staked ? net / staked : null };
+             sold: done.filter((b) => b.status === "sold").length, net, roi: staked ? net / staked : null,
+             trades: trades.length, tnet, troi: tcost ? tnet / tcost : null };
   }
 
   function draw() {
     const canClaim = W.lastClaim !== today();
     const fab = $$("#w-fab");
-    fab.innerHTML = `<span class="w-coin">🪙</span><b>${usd(W.balance)}</b>${canClaim ? '<span class="w-claimdot">FREE $100</span>' : ""}`;
+    const held = W.positions.filter((x) => x.status === "open").reduce((a, x) => a + (posValue(x) ?? x.cost), 0);
+    fab.innerHTML = `<span class="w-coin">🪙</span><b>${usd(W.balance + held)}</b>${canClaim ? '<span class="w-claimdot">FREE $100</span>' : ""}`;
     fab.classList.toggle("glow", canClaim);
     const p = $$("#w-panel");
     p.hidden = !ui.open;
@@ -157,9 +192,9 @@
         <button class="w-x" data-w="close" aria-label="Close">✕</button></div>
       <div class="w-bal"><div><div class="w-sub">Balance</div><div class="w-big">${usd(W.balance)}</div></div>
         <button class="w-claim" data-w="claim" ${canClaim ? "" : "disabled"}>${canClaim ? "🎁 Claim free $100" : "✓ Claimed today"}</button></div>
-      <div class="w-tabs">${[["bet", "Bet"], ["open", `Open (${open.length})`], ["history", "History"]].map(([k2, l]) =>
+      <div class="w-tabs">${[["bet", "Bet"], ["open", `Open (${open.length + W.positions.filter((x) => x.status === "open").length})`], ["history", "History"]].map(([k2, l]) =>
         `<button data-wt="${k2}" aria-pressed="${ui.tab === k2}">${l}</button>`).join("")}</div>
-      ${ui.tab === "bet" ? `
+      ${ui.tab === "bet" ? modeToggle() + (ui.mode === "trade" ? tradeHTML() : `
         <div class="w-row">${COINS_W.map((c) => `<button class="chip" data-wc="${c}" aria-pressed="${ui.coin === c}">${c.replace("-USD", "")}</button>`).join("")}</div>
         <div class="w-mkt">${m?.price ? `<div class="w-sub">${ui.coin.replace("-USD", "")} now <b>$${fmtPrice(m.price)}</b> · opened window at $${fmtPrice(m.start)}
             · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>` : `<div class="w-sub">Loading market…</div>`}
@@ -173,34 +208,79 @@
           <input class="w-amt" type="number" min="1" step="1" value="${ui.stake}" aria-label="Stake in dollars"></div>
         <div class="w-sub w-quote">${ask ? `${n} contract${n === 1 ? "" : "s"} × ${Math.round(ask * 100)}¢ + fee ${(fee(ask) * 100).toFixed(2)}¢ = <b>${usd(n * per)}</b> · pays <b>${usd(n)}</b> if ${ui.side.toUpperCase()} wins` : ""}</div>
         <button class="w-place ${ui.side}" data-w="place" ${left != null && left < CUTOFF ? "disabled" : ""}>${left != null && left < CUTOFF ? "Window closing…" : `Buy ${ui.side.toUpperCase()}`}</button>
-        <div class="w-fine">Simulated market from Coinbase's live price (real Kalshi/Robinhood prices differ). Settles on Coinbase's 15-minute candle: UP wins if it closes at or above the open. Kalshi-style fees on every buy and sell.</div>`
-      : ui.tab === "open" ? (open.length ? open.map((b) => {
+        <div class="w-fine">Simulated market from Coinbase's live price (real Kalshi/Robinhood prices differ). Settles on Coinbase's 15-minute candle: UP wins if it closes at or above the open. Kalshi-style fees on every buy and sell.</div>`)
+      : ui.tab === "open" ? positionsHTML() + (open.length ? open.map((b) => {
           const mm = mkt[b.coin], q = mm?.t === b.t ? bidFor(mm, b.side) : null, val = q != null ? b.n * (q - fee(q)) : null;
           return `<div class="w-bet"><div><b>${b.coin.replace("-USD", "")} ${b.side === "up" ? "▲ UP" : "▼ DOWN"}</b> · ${b.n} @ ${Math.round(b.price * 100)}¢
             <div class="w-sub">${hhmm(b.t * 1000)}–${hhmm((b.t + 900) * 1000)} · cost ${usd(b.cost)} · pays ${usd(b.n)}${val != null ? ` · worth now <b class="${val >= b.cost ? "pos" : "neg"}">${usd(val)}</b>` : " · settling…"}</div></div>
             ${val != null ? `<button class="w-sell" data-sell="${b.id}">Sell ${usd(val)}</button>` : ""}</div>`;
-        }).join("") : `<div class="w-sub w-empty">No open bets.</div>`)
-      : `<div class="w-stats"><span>Record <b>${st.wins}–${st.losses}</b>${st.sold ? ` (+${st.sold} sold)` : ""}</span>
+        }).join("") : W.positions.some((x) => x.status === "open") ? "" : `<div class="w-sub w-empty">Nothing open.</div>`)
+      : `<div class="w-stats"><span>Predict <b>${st.wins}–${st.losses}</b>${st.sold ? ` (+${st.sold} sold)` : ""}</span>
           <span>Net <b class="${st.net >= 0 ? "pos" : "neg"}">${usd(st.net)}</b></span><span>ROI <b>${st.roi == null ? "–" : (st.roi * 100).toFixed(1) + "%"}</b></span></div>
+        <div class="w-stats"><span>Trades <b>${st.trades}</b></span><span>Net <b class="${st.tnet >= 0 ? "pos" : "neg"}">${usd(st.tnet)}</b></span>
+          <span>ROI <b>${st.troi == null ? "–" : (st.troi * 100).toFixed(1) + "%"}</b></span></div>
+        ${W.positions.filter((x) => x.status === "closed").slice(0, 20).map((x) => `<div class="w-bet ${x.proceeds >= x.cost ? "won" : "lost"}"><div><b>${x.coin.replace("-USD", "")} trade</b> · ${TRADE_FEES[x.venue]?.name || ""}
+          <div class="w-sub">bought $${fmtPrice(x.entry)} → sold $${fmtPrice(x.exit)} · ${new Date(x.closedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</div></div>
+          <div class="w-res">${usd(x.cost)} in<br><b class="${x.proceeds - x.cost >= 0 ? "pos" : "neg"}">${usd(x.proceeds - x.cost)}</b></div></div>`).join("")}
         ${done.slice(0, 40).map((b) => `<div class="w-bet ${b.status}"><div><b>${b.coin.replace("-USD", "")} ${b.side === "up" ? "▲ UP" : "▼ DOWN"}</b> · ${b.n} @ ${Math.round(b.price * 100)}¢
           <div class="w-sub">${new Date(b.t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${b.kronos ? ` · Kronos said ${b.kronos.dir}` : ""}</div></div>
-          <div class="w-res">${b.status === "won" ? "✓ WON" : b.status === "lost" ? "✗ LOST" : "SOLD"}<br><b class="${b.proceeds - b.cost >= 0 ? "pos" : "neg"}">${usd(b.proceeds - b.cost)}</b></div></div>`).join("") || `<div class="w-sub w-empty">No finished bets yet.</div>`}
+          <div class="w-res">${b.status === "won" ? "✓ WON" : b.status === "lost" ? "✗ LOST" : "SOLD"}<br><b class="${b.proceeds - b.cost >= 0 ? "pos" : "neg"}">${usd(b.proceeds - b.cost)}</b></div></div>`).join("") || (W.positions.some((x) => x.status === "closed") ? "" : `<div class="w-sub w-empty">Nothing finished yet.</div>`)}
         <button class="w-reset" data-w="reset">Reset wallet</button>`}`;
+  }
+
+  function modeToggle() {
+    return `<div class="w-mode">${[["predict", "🎯 Predict Up/Down"], ["trade", "📈 Trade coins"]].map(([k, l]) =>
+      `<button data-wm="${k}" aria-pressed="${ui.mode === k}">${l}</button>`).join("")}</div>`;
+  }
+
+  function tradeHTML() {
+    const m = mkt[ui.coin], v = TRADE_FEES[ui.venue];
+    const amt = Number(ui.stake), qty = m?.price ? (amt * (1 - v.fee)) / m.price : null;
+    const be = (1 / ((1 - v.fee) ** 2) - 1) * 100;  // % rise needed to get your money back after both fees
+    return `
+      <div class="w-row">${COINS_W.map((c) => `<button class="chip" data-wc="${c}" aria-pressed="${ui.coin === c}">${c.replace("-USD", "")}</button>`).join("")}</div>
+      <div class="w-row"><span class="w-sub">Fees like:</span>${Object.entries(TRADE_FEES).map(([k, f]) =>
+        `<button class="chip" data-wv="${k}" aria-pressed="${ui.venue === k}">${f.name} ${(f.fee * 100).toFixed(f.fee < 0.005 ? 1 : 2)}%</button>`).join("")}</div>
+      <div class="w-mkt"><div class="w-sub">${ui.coin.replace("-USD", "")} price</div>
+        <div class="w-big">${m?.price ? "$" + fmtPrice(m.price) : "…"}</div>
+        <div class="w-sub">You need about <b class="neg">+${be.toFixed(2)}%</b> just to break even after the ${v.name} fee to buy <i>and</i> to sell.</div></div>
+      <div class="w-row">${[5, 10, 25, 50].map((x) => `<button class="chip" data-wa="${x}" aria-pressed="${+ui.stake === x}">$${x}</button>`).join("")}
+        <button class="chip" data-wa="${Math.floor(W.balance)}">All</button>
+        <input class="w-amt" type="number" min="1" step="1" value="${ui.stake}" aria-label="Amount in dollars"></div>
+      <div class="w-sub w-quote">${qty ? `${usd(amt)} buys <b>${qty.toPrecision(4)} ${ui.coin.replace("-USD", "")}</b> after a ${usd(amt * v.fee)} fee` : ""}</div>
+      <button class="w-place up" data-w="buy">Buy ${ui.coin.replace("-USD", "")}</button>
+      <div class="w-fine">Buy now, sell any time from the Open tab at the live Coinbase price. ${v.name}'s fee (${(v.fee * 100).toFixed(2)}%) is taken on the buy and again on the sell.
+        Regular Robinhood/Coinbase accounts can't profit from a price drop (no shorting); to bet on Down, use Predict.</div>`;
+  }
+
+  function positionsHTML() {
+    const ps = W.positions.filter((x) => x.status === "open");
+    return ps.map((x) => {
+      const val = posValue(x), chg = mkt[x.coin]?.price ? (mkt[x.coin].price / x.entry - 1) * 100 : null;
+      return `<div class="w-bet"><div><b>${x.coin.replace("-USD", "")} 📈 holding</b> · ${usd(x.cost)} in
+        <div class="w-sub">bought at $${fmtPrice(x.entry)}${chg != null ? ` · price ${chg >= 0 ? "▲" : "▼"} ${Math.abs(chg).toFixed(2)}%` : ""} · ${TRADE_FEES[x.venue]?.name}
+          ${val != null ? ` · worth after fee <b class="${val >= x.cost ? "pos" : "neg"}">${usd(val)}</b>` : ""}</div></div>
+        ${val != null ? `<button class="w-sell" data-sellpos="${x.id}">Sell ${usd(val)}</button>` : ""}</div>`;
+    }).join("");
   }
 
   function bind() {
     document.addEventListener("click", async (e) => {
-      const t = e.target.closest("[data-w],[data-wt],[data-wc],[data-ws],[data-wa],[data-sell],#w-fab,[data-wbet]");
+      const t = e.target.closest("[data-w],[data-wt],[data-wc],[data-ws],[data-wa],[data-sell],[data-sellpos],[data-wm],[data-wv],#w-fab,[data-wbet]");
       if (!t) return;
       if (t.id === "w-fab") { ui.open = !ui.open; if (ui.open) tick(); draw(); return; }
-      if (t.dataset.wbet) { const [coin, side] = t.dataset.wbet.split(":"); Object.assign(ui, { open: true, tab: "bet", coin, side }); tick(); draw(); return; }
+      if (t.dataset.wbet) { const [coin, side] = t.dataset.wbet.split(":"); Object.assign(ui, { open: true, tab: "bet", mode: "predict", coin, side }); tick(); draw(); return; }
+      if (t.dataset.wm) { ui.mode = t.dataset.wm; saveUi(); tick(); }
+      if (t.dataset.wv) { ui.venue = t.dataset.wv; saveUi(); }
+      if (t.dataset.sellpos) return sellCoin(+t.dataset.sellpos).catch(() => toast("Couldn't reach Coinbase; try again."));
       const a = t.dataset.w;
       if (a === "close") ui.open = false;
       if (a === "claim") return claim();
+      if (a === "buy") return buyCoin().catch(() => toast("Couldn't reach Coinbase; try again."));
       if (a === "place") return placeBet().catch(() => toast("Couldn't reach Coinbase; try again."));
-      if (a === "reset" && confirm("Reset your practice wallet? This clears your balance and history.")) { W = { balance: 0, lastClaim: null, claims: 0, bets: [] }; saveW(); }
+      if (a === "reset" && confirm("Reset your practice wallet? This clears your balance and history.")) { W = { balance: 0, lastClaim: null, claims: 0, bets: [], positions: [] }; saveW(); }
       if (t.dataset.wt) ui.tab = t.dataset.wt;
-      if (t.dataset.wc) { ui.coin = t.dataset.wc; tick(); }
+      if (t.dataset.wc) { ui.coin = t.dataset.wc; saveUi(); tick(); }
       if (t.dataset.ws) ui.side = t.dataset.ws;
       if (t.dataset.wa) ui.stake = +t.dataset.wa;
       if (t.dataset.sell) return sellBet(+t.dataset.sell).catch(() => toast("Couldn't reach Coinbase; try again."));
@@ -210,6 +290,11 @@
   }
   function drawQuote() {  // update only the quote line while typing, so the input keeps focus
     const m = mkt[ui.coin], el = $$(".w-quote");
+    if (ui.mode === "trade" && ui.tab === "bet") {
+      const v = TRADE_FEES[ui.venue];
+      if (el && m?.price) el.innerHTML = `${usd(ui.stake)} buys <b>${((ui.stake * (1 - v.fee)) / m.price).toPrecision(4)} ${ui.coin.replace("-USD", "")}</b> after a ${usd(ui.stake * v.fee)} fee`;
+      return;
+    }
     if (!m?.upAsk || !el) return;
     const ask = askFor(m, ui.side), per = ask + fee(ask), n = Math.floor(ui.stake / per);
     el.innerHTML = `${n} contract${n === 1 ? "" : "s"} × ${Math.round(ask * 100)}¢ + fee ${(fee(ask) * 100).toFixed(2)}¢ = <b>${usd(n * per)}</b> · pays <b>${usd(n)}</b> if ${ui.side.toUpperCase()} wins`;
@@ -217,7 +302,8 @@
 
   async function tick() {
     if (ui.open) {
-      const coins = new Set([ui.coin, ...W.bets.filter((b) => b.status === "open").map((b) => b.coin)]);
+      const coins = new Set([ui.coin, ...W.bets.filter((b) => b.status === "open").map((b) => b.coin),
+                             ...W.positions.filter((x) => x.status === "open").map((x) => x.coin)]);
       await Promise.all([...coins].map((c) => refreshMarket(c).catch(() => {})));
       if (!document.activeElement?.classList?.contains("w-amt")) draw(); else drawQuote();
     }

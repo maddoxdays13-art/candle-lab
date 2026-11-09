@@ -315,3 +315,8 @@ tr.bestrow td { background: color-mix(in srgb, var(--good) 7%, transparent); }
 footer.foot { padding-bottom: 80px; }
 @media (max-width: 760px) { #w-panel { right: 8px; left: 8px; width: auto; bottom: 70px; } #w-fab { right: 10px; bottom: 10px; } }
 @media (prefers-reduced-motion: reduce) { #w-fab.glow { animation: none; } }
+.w-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 10px; background: var(--bar); margin-bottom: 8px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.6); }
+.w-mode button { border: 0; border-radius: 8px; padding: 8px 6px; background: transparent; color: var(--muted); font: 800 13px "Barlow", sans-serif; cursor: pointer; }
+.w-mode button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); background-image: linear-gradient(180deg, rgba(255,255,255,.1), rgba(0,0,0,.15));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 4px -1px rgba(0,0,0,.6); }
