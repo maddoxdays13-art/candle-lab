@@ -217,6 +217,33 @@ def build_backtest():
     out["coin_compare"] = coin_compare(out["coins"])
     write_calibration_csv(out["coins"], BACKTEST_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "backtest.json", clean_nans(out))
+    build_trials()
+
+
+def build_trials():
+    """Compact per-candle backtest forecasts for the Trials page (re-scored in the browser).
+    One file per coin: start time + parallel integer arrays, one entry per 15-minute candle:
+      p   Kronos's share of 'up' samples x 100
+      m   Kronos's predicted move, basis points (0.01%)
+      r   what actually happened, basis points
+      u   1 if the previous candle went up (momentum)"""
+    for coin in COINS:
+        from .backtest import load_coin
+        bt = load_coin(coin)
+        if bt.empty:
+            continue
+        bt = bt.sort_values("ts").drop_duplicates("ts")
+        out = {"coin": coin, "t0": int(bt["ts"].iloc[0]), "step": 900, "ts": None,
+               "p": (bt["p_up"] * 100).round().astype(int).tolist(),
+               "m": ((bt["pred_close"] / bt["last_close"] - 1) * 1e4).round().clip(-30000, 30000).astype(int).tolist(),
+               "r": ((bt["close"] / bt["last_close"] - 1) * 1e4).round(1).clip(-30000, 30000).tolist(),
+               "u": (bt["last_close"] > bt["prev_close"]).astype(int).tolist()}
+        gaps = (np.diff(bt["ts"].to_numpy()) != 900).any()
+        if gaps:  # only send timestamps when the series isn't perfectly regular
+            out["ts"] = bt["ts"].astype(int).tolist()
+        path = SITE_DATA_DIR / f"trials-{coin}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out, separators=(",", ":")))
 
 
 def build_experiments():
@@ -242,9 +269,10 @@ def build_experiments():
 def main():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--only", choices=["live", "backtest", "experiments"])
+    ap.add_argument("--only", choices=["live", "backtest", "experiments", "trials"])
     a = ap.parse_args()
-    for name, fn in [("live", build_live), ("backtest", build_backtest), ("experiments", build_experiments)]:
+    for name, fn in [("live", build_live), ("backtest", build_backtest), ("experiments", build_experiments),
+                     ("trials", build_trials)]:
         if a.only in (None, name):
             fn()
 

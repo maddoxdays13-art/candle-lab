@@ -386,6 +386,7 @@ const HEADS = {
   live: ["Live", "Predicting the 15-minute candle forming right now, scored when it closes"],
   backtest: ["Backtest", "Walk-forward replay of history the model never trained on"],
   experiments: ["Experiments", "Champion vs challengers, tested every night"],
+  trials: ["Trials", "What would have happened if we changed some stuff? Re-run the backtest with different settings, instantly"],
   bets: ["Bets", "15-minute “up or down” prediction markets (Kalshi, Robinhood, Polymarket): paper bets on Kronos's calls, and Kronos vs the betting crowd"],
   candlesticks: ["Candlesticks", "A cheat sheet: what every common candlestick pattern looks like and what traders read into it"],
 };
@@ -499,12 +500,13 @@ async function render() {
   destroyCharts();
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === state.tab));
   const main = $("#main");
-  const d = state.tab === "candlesticks" ? null : state.tab === "bets" ? await load("live") : await load(state.tab);
+  const d = ["candlesticks", "trials"].includes(state.tab) ? null : state.tab === "bets" ? await load("live") : await load(state.tab);
   try {
     if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) { drawPerformanceCharts(d); startPrices(); } }
     if (state.tab === "backtest") { main.innerHTML = pageHead("backtest") + renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
     if (state.tab === "experiments") { main.innerHTML = pageHead("experiments") + renderExperiments(d); drawExperimentChart(d); }
     if (state.tab === "candlesticks") { main.innerHTML = pageHead("candlesticks") + renderCandles(); bindCandles(); }
+    if (state.tab === "trials") { main.innerHTML = pageHead("trials") + renderTrials(); bindTrials(); drawTrials(); }
     if (state.tab === "bets") { const bt = await load("backtest"); main.innerHTML = pageHead("bets") + renderBets(d, bt); drawBetCharts(d, bt); }
   } catch (e) {
     console.error(e);
@@ -831,7 +833,7 @@ async function fetchFresh(name) {
 }
 setInterval(async () => {
   try {
-    const names = [...new Set(["live", state.tab === "bets" ? "backtest" : state.tab])].filter((n) => n !== "candlesticks");
+    const names = [...new Set(["live", state.tab === "bets" ? "backtest" : state.tab])].filter((n) => n !== "candlesticks" && n !== "trials");
     const fresh = await Promise.all(names.map(fetchFresh));
     let changed = false;
     names.forEach((n, i) => {
