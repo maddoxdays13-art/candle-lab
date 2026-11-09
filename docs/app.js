@@ -291,10 +291,30 @@ function renderBets(live, bt) {
       <td>${r.price == null ? "–" : Math.round(r.price * 100) + "¢"}</td><td class="${cls(r.pnl)}">${r.pnl == null ? "–" : money(r.pnl)}</td></tr>`).join("")}
     </tbody></table></div>`;
   }
+  html += kalshiStyleSection(state.data.kalshi_style);
   html += `<p class="note">Kalshi settles on the CF Benchmarks index (60-second averages), not Coinbase's candle, so results can differ slightly from the Live tab.
     Candle Lab records prices about 75 seconds into each window, so the odds may already have moved. Fees: Kalshi 0.07×price×(1−price) for instant fills, 0.0175× for limit orders;
     Robinhood ~2¢ per contract; Polymarket reported up to ~3% at 50/50 (unconfirmed for US). Real money carries real risk, and the tax treatment of these contracts is unsettled.</p>`;
   return html;
+}
+
+function kalshiStyleSection(ks) {
+  if (!ks?.pooled) return "";
+  const be = 0.5 + 0.07 * 0.25, bem = 0.5 + 0.0175 * 0.25;
+  const names = ["Kronos reversals", "Snap-back (reverse last candle)", "Kronos (all calls)", "Kronos continuations", "Coin flip"];
+  return `<h2>Does the edge survive Kalshi's settlement rule? (research, last ~${ks.days} days of each coin's backtest)</h2>
+    <div class="tablewrap"><table><thead><tr><th>Strategy</th><th>Coinbase last-trade rule</th><th>Kalshi-style 60-second averages</th><th>Calls</th><th>vs Kalshi break-even</th></tr></thead><tbody>
+    ${names.filter((n) => ks.pooled[n]).map((n) => {
+      const c = ks.pooled[n].coinbase_rule, k = ks.pooled[n].kalshi_rule;
+      const v = k.ci_low > be ? `<span class="verdict yes" style="margin:0">✓ ABOVE ${pct(be, 1)}</span>`
+        : k.hit_rate > be ? `<span class="verdict luck" style="margin:0">ABOVE, NOT PROVEN</span>`
+        : k.hit_rate > bem ? `<span class="verdict luck" style="margin:0">ONLY WITH LIMIT ORDERS (${pct(bem, 1)})</span>`
+        : `<span class="verdict no" style="margin:0">BELOW BREAK-EVEN</span>`;
+      return `<tr><td><b>${esc(n)}</b></td><td>${pct(c.hit_rate, 2)} <span class="muted">(${pct(c.ci_low)}–${pct(c.ci_high)})</span></td>
+        <td><b>${pct(k.hit_rate, 2)}</b> <span class="muted">(${pct(k.ci_low)}–${pct(k.ci_high)})</span></td><td>${num(k.calls)}</td><td>${v}</td></tr>`;
+    }).join("")}</tbody></table></div>
+    <p class="note">Coinbase candles close on the last trade, which bounces between buyers and sellers; Kalshi's 15-minute markets compare 60-second averages, which smooth that bounce out.
+      Re-scoring the same windows Kalshi's way shows how much of the reversal edge is real. Break-even: ${pct(be, 1)} with instant fills, ${pct(bem, 1)} with limit orders (if they fill).</p>`;
 }
 
 function drawBetCharts(live, bt) {
@@ -554,7 +574,7 @@ async function render() {
     if (state.tab === "experiments") { main.innerHTML = pageHead("experiments") + renderExperiments(d); drawExperimentChart(d); }
     if (state.tab === "candlesticks") { main.innerHTML = pageHead("candlesticks") + renderCandles(); bindCandles(); }
     if (state.tab === "trials") { main.innerHTML = pageHead("trials") + renderTrials(); bindTrials(); drawTrials(); }
-    if (state.tab === "bets") { const bt = await load("backtest"); main.innerHTML = pageHead("bets") + renderBets(d, bt); drawBetCharts(d, bt); }
+    if (state.tab === "bets") { const bt = await load("backtest"); await load("kalshi_style"); main.innerHTML = pageHead("bets") + renderBets(d, bt); drawBetCharts(d, bt); }
   } catch (e) {
     console.error(e);
     main.innerHTML = `<p class="pad muted">Could not render this tab: ${esc(e.message)}</p>`;
