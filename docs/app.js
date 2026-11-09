@@ -147,6 +147,7 @@ function performanceSection(d, kind) {
   if (kind === "live") html += priceSection();
   html += `<h2>Matchups${pooled ? " · all coins pooled" : ""}</h2>${matchups(coinData)}`;
   html += coinCompareSection(d.coin_compare);
+  if (kind === "backtest") html += timeframesSection(d.timeframes);
   html += `<p class="note">Edge = Kronos hit rate minus the baseline's, in percentage points. "Beats it" needs a one-sided p-value under 0.05; anything else could be luck.</p>`;
   html += `<h2>Scoreboard</h2>${pooled ? "" : feeChips()}${scoreboard(coinData, pooled)}`;
   html += `<p class="note">Paper P&amp;L: buy when the call is "up", sit in cash otherwise, paying <b>${feeInfo().pct} on every buy and every sell</b> (${feeInfo().name}).
@@ -159,6 +160,36 @@ function performanceSection(d, kind) {
       <div><h2>Paper P&amp;L vs holding · ${feeInfo().name} fees</h2><div class="chartbox"><canvas id="pnlChart"></canvas></div></div></div>`;
   }
   return html;
+}
+
+/* ---------- Timeframes compared ---------- */
+const TF = [["15m", "15 minutes"], ["1h", "1 hour"], ["6h", "6 hours"], ["1d", "1 day"]];
+function timeframesSection(tf) {
+  if (!tf || !Object.keys(tf).length) return "";
+  const coin = state.coin, v = venueInfo();
+  const rows = TF.filter(([h]) => tf[h]?.[coin]);
+  if (!rows.length) return "";
+  const p = tf[rows[0][0]][coin].p_differ;
+  const feeRT = { best: 0.2, cb_maker: 1.0, cb_taker: 1.8, robinhood: 1.9 }[state.fee];
+  const best = rows.reduce((a, [h]) => (tf[h][coin].kronos.hit_rate ?? 0) > (a ? tf[a][coin].kronos.hit_rate ?? 0 : -1) ? h : a, null);
+  return `<h2>Timeframes compared${coin === "ALL" ? " · all coins" : " · " + coin.replace("-USD", "")}</h2>
+    <div class="tablewrap"><table><thead><tr><th>Timeframe</th><th>Typical move</th><th>Big moves*</th><th>Kronos hit rate</th><th>95% range</th><th>vs Coin flip</th>
+      <th>$1 bets (${esc(v.name)})</th><th>Trading P&amp;L (${feeInfo().pct})</th><th>Calls</th></tr></thead><tbody>
+    ${rows.map(([h, label]) => {
+      const e = tf[h][coin], k = e.kronos, mv = e.moves, b = k.bets?.[state.venue];
+      return `<tr class="${h === best ? "bestrow" : ""}"><td><b>${label}</b>${h === "15m" ? ' <span class="muted">(main)</span>' : ""}${h === best ? ' <span class="pill up">TOP</span>' : ""}</td>
+        <td>±${mv.avg.toFixed(2)}% <span class="muted">(1 in 10: ±${mv.p90.toFixed(1)}%+)</span></td>
+        <td>${pct(mv.beats_fee?.[state.fee], 0)}</td>
+        <td><b>${pct(k.hit_rate)}</b></td><td>${pct(k.ci_low)} – ${pct(k.ci_high)}${ciBar(k)}</td>
+        <td class="${cls(e.kronos_vs?.coin_flip?.edge_pp)}">${signed(e.kronos_vs?.coin_flip?.edge_pp, 1, " pp")}</td>
+        <td class="${cls(b?.pnl)}">${money(b?.pnl)} <span class="muted">(${b?.roi == null ? "–" : signed(b.roi * 100, 1)})</span></td>
+        <td class="${cls(k.pnl_by_fee?.[state.fee])}">${coin === "ALL" ? "–" : signed(k.pnl_by_fee?.[state.fee])}</td>
+        <td>${num(k.calls)}</td></tr>`;
+    }).join("")}</tbody></table></div>
+    <div class="note">${p == null ? "" : p < 0.05 ? `<span class="verdict yes">✓ TIMEFRAME MATTERS</span>` : `<span class="verdict luck">≈ DIFFERENCES COULD BE LUCK (p=${p.toFixed(2)})</span>`}
+      Typical move = average size of one candle's up-or-down move. *Big moves = share of candles that moved more than the ${feeInfo().pct}×2 = ${feeRT}% round-trip trading cost.
+      Up/Down bets cost about the same per bet on any timeframe (break-even ~52% at 50¢), so for betting only the hit rate matters; for trading coins, bigger moves make fees hurt less.
+      Fewer candles on longer timeframes means wider 95% ranges.</div>`;
 }
 
 /* ---------- Which coin is Kronos best at? ---------- */

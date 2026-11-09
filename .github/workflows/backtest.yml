@@ -65,8 +65,30 @@ jobs:
           name: status-${{ matrix.coin }}
           path: results/backtest/status-${{ matrix.coin }}.txt
 
+  horizons:
+    # Same backtest on 1-hour, 6-hour and daily candles (far fewer candles, so these finish quickly).
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        coin: [BTC-USD, ETH-USD, SOL-USD]
+        horizon: [1h, 6h, 1d]
+    steps:
+      - uses: actions/checkout@v4
+      - run: git pull -q --rebase origin "${{ github.ref_name }}"
+      - uses: ./.github/actions/setup
+        with: { candles: "true", scope: "${{ matrix.coin }}-${{ matrix.horizon }}" }
+      - name: Backtest ${{ matrix.coin }} ${{ matrix.horizon }}
+        run: python -m candlelab.backtest --coin ${{ matrix.coin }} --horizon ${{ matrix.horizon }} --max-minutes ${{ inputs.max_minutes || 300 }} --no-site
+      - name: Commit results
+        if: always()
+        run: |
+          scripts/commit_and_push.sh "backtest: ${{ matrix.coin }} ${{ matrix.horizon }}" "results/backtest/horizons/${{ matrix.horizon }}/${{ matrix.coin }}"
+
   finish:
-    needs: [prepare, run]
+    needs: [prepare, run, horizons]
     if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20

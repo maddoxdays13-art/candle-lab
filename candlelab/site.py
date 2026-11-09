@@ -9,7 +9,7 @@ from .config import (BACKTEST_DIR, LIVE_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_F
                      load_champion_state, load_json, save_json)
 from .stats import (bet_fee, bet_pnl, calibration, clean_nans, coins_differ, compare, rolling_series,
                     summarize, wilson)
-from .config import BET_VENUES
+from .config import BET_VENUES, FEE_PRESETS
 
 MODELS = ["kronos", "momentum", "coin_flip", "always_up"]
 DIR_NUM = {"up": 1, "down": -1, "skip": 0}
@@ -215,9 +215,74 @@ def build_backtest():
         "coins": section(long_df, window=960),
     }
     out["coin_compare"] = coin_compare(out["coins"])
+    out["timeframes"] = build_timeframes()
     write_calibration_csv(out["coins"], BACKTEST_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "backtest.json", clean_nans(out))
     build_trials()
+
+
+def _long_from_bt(bt, coin):
+    actual = np.where(bt["close"] > bt["last_close"], 1, -1)
+    parts = []
+    for m in MODELS:
+        parts.append(pd.DataFrame({
+            "coin": coin, "model": m, "ts": bt["ts"].astype(int), "direction": bt[m].astype(int), "actual_dir": actual,
+            "ret": bt["close"] / bt["last_close"] - 1,
+            "pct_error": (bt["pred_close"] - bt["close"]) / bt["close"] * 100 if m == "kronos" else np.nan,
+            "conf": bt["kronos_conf"] if m == "kronos" else np.nan}))
+    return pd.concat(parts, ignore_index=True)
+
+
+def move_stats(ret):
+    """How much the price typically moves over one candle of this timeframe (in %)."""
+    a = np.abs(np.asarray(ret, float)) * 100
+    if not len(a):
+        return None
+    return {"avg": float(a.mean()), "median": float(np.median(a)), "p90": float(np.percentile(a, 90)),
+            "up_share": float((np.asarray(ret) > 0).mean()),
+            # share of candles that moved more than each round-trip trading cost
+            "beats_fee": {k: float((a > 2 * f * 100).mean()) for k, f in FEE_PRESETS.items()}}
+
+
+def build_timeframes():
+    """Kronos on 15-minute, 1-hour, 6-hour and daily candles, side by side."""
+    from .backtest import HORIZONS, horizon_dir, load_coin
+    out = {}
+    for h in HORIZONS:
+        per = {}
+        longs = []
+        for coin in COINS:
+            bt = load_coin(coin, horizon_dir(h))
+            if bt.empty:
+                continue
+            bt = bt.sort_values("ts").drop_duplicates("ts")
+            lg = _long_from_bt(bt, coin)
+            longs.append(lg)
+            per[coin] = _tf_entry(lg, bt["close"] / bt["last_close"] - 1, bt)
+        if longs:
+            lg = pd.concat(longs, ignore_index=True)
+            per["ALL"] = _tf_entry(lg, lg[lg["model"] == "kronos"]["ret"], None)
+            out[h] = per
+    # Does the timeframe matter for Kronos, or could the differences be luck?
+    for coin in COINS + ["ALL"]:
+        hits = {h: (out[h][coin]["kronos"]["hits"], out[h][coin]["kronos"]["calls"]) for h in out if coin in out[h]}
+        p = coins_differ(hits)
+        for h in out:
+            if coin in out[h]:
+                out[h][coin]["p_differ"] = p
+    return out
+
+
+def _tf_entry(lg, ret, bt):
+    e = {"moves": move_stats(ret)}
+    for m in MODELS:
+        sub = lg[lg["model"] == m].sort_values("ts")
+        sm = summarize(sub)
+        e[m] = {k: sm.get(k) for k in ["calls", "hits", "hit_rate", "ci_low", "ci_high", "coverage", "p_vs_50", "bets", "pnl_by_fee", "hold_by_fee", "trades", "candles"]}
+    e["kronos_vs"] = {b: compare(e["kronos"], e[b]) for b in ["momentum", "coin_flip", "always_up"]}
+    if bt is not None:
+        e["first"], e["last"] = int(bt["ts"].iloc[0]), int(bt["ts"].iloc[-1])
+    return e
 
 
 def build_trials():
@@ -227,21 +292,21 @@ def build_trials():
       m   Kronos's predicted move, basis points (0.01%)
       r   what actually happened, basis points
       u   1 if the previous candle went up (momentum)"""
-    for coin in COINS:
-        from .backtest import load_coin
-        bt = load_coin(coin)
+    from .backtest import HORIZONS, horizon_dir, load_coin
+    for (h, g), coin in [(hg, c) for hg in HORIZONS.items() for c in COINS]:
+        bt = load_coin(coin, horizon_dir(h))
         if bt.empty:
             continue
         bt = bt.sort_values("ts").drop_duplicates("ts")
-        out = {"coin": coin, "t0": int(bt["ts"].iloc[0]), "step": 900, "ts": None,
+        out = {"coin": coin, "horizon": h, "t0": int(bt["ts"].iloc[0]), "step": g, "ts": None,
                "p": (bt["p_up"] * 100).round().astype(int).tolist(),
                "m": ((bt["pred_close"] / bt["last_close"] - 1) * 1e4).round().clip(-30000, 30000).astype(int).tolist(),
                "r": ((bt["close"] / bt["last_close"] - 1) * 1e4).round(1).clip(-30000, 30000).tolist(),
                "u": (bt["last_close"] > bt["prev_close"]).astype(int).tolist()}
-        gaps = (np.diff(bt["ts"].to_numpy()) != 900).any()
+        gaps = (np.diff(bt["ts"].to_numpy()) != g).any()
         if gaps:  # only send timestamps when the series isn't perfectly regular
             out["ts"] = bt["ts"].astype(int).tolist()
-        path = SITE_DATA_DIR / f"trials-{coin}.json"
+        path = SITE_DATA_DIR / (f"trials-{coin}.json" if h == "15m" else f"trials-{coin}-{h}.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, separators=(",", ":")))
 

@@ -23,16 +23,24 @@ BT_COLS = ["ts", "last_close", "prev_close", "close", "pred_close", "p_up",
 FLUSH_EVERY = 256  # predictions between saves
 
 
-def load_coin(coin):
-    files = sorted((BACKTEST_DIR / coin).glob("*.csv"))
+HORIZONS = {"15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
+
+
+def horizon_dir(h):
+    """15m results live in results/backtest/<coin>/; other timeframes in results/backtest/horizons/<h>/<coin>/."""
+    return BACKTEST_DIR if h == "15m" else BACKTEST_DIR / "horizons" / h
+
+
+def load_coin(coin, base=BACKTEST_DIR):
+    files = sorted((base / coin).glob("*.csv"))
     if not files:
         return pd.DataFrame(columns=BT_COLS)
     return pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
 
 
-def save_rows(coin, rows):
+def save_rows(coin, rows, base=BACKTEST_DIR):
     """Append rows to their monthly files (rows are always newer than what is saved)."""
-    d = BACKTEST_DIR / coin
+    d = base / coin
     d.mkdir(parents=True, exist_ok=True)
     months = pd.to_datetime(rows["ts"], unit="s", utc=True).dt.strftime("%Y-%m")
     for month, part in rows.groupby(months):
@@ -57,24 +65,25 @@ def check_meta(cfg, reset):
                               "note": cfg.get("note", "")})
 
 
-def run_coin(coin, cfg, deadline):
+def run_coin(coin, cfg, deadline, h="15m"):
     s = cfg["settings"]
     L = s["context_len"]
+    g, base = HORIZONS[h], horizon_dir(h)
     start_ts = data.to_ts(cfg["start"])
-    stride = int(cfg.get("stride", 1))
-    candles = data.update_history(coin, start_ts - (L + 2) * GRANULARITY)
-    done = load_coin(coin)
-    first = start_ts if done.empty else int(done["ts"].max()) + stride * GRANULARITY
+    stride = int(cfg.get("stride", 1)) if h == "15m" else 1
+    candles = data.update_history(coin, start_ts - (L + 2) * g, g=g)
+    done = load_coin(coin, base)
+    first = start_ts if done.empty else int(done["ts"].max()) + stride * g
     ts = candles["ts"].to_numpy()
     targets = np.nonzero((ts >= first) & (np.arange(len(ts)) >= L + 1))[0][::stride]
-    print(f"{coin}: {len(done)} done, {len(targets)} to go")
+    print(f"{coin} {h}: {len(done)} done, {len(targets)} to go")
     c = candles["close"].to_numpy()
     for b0 in range(0, len(targets), FLUSH_EVERY):
         if time.time() > deadline:
             print(f"{coin}: time budget used; will resume next run")
             return False
         idx = targets[b0:b0 + FLUSH_EVERY]
-        f = engine.forecast(candles, idx, s, seed_tag=coin)
+        f = engine.forecast(candles, idx, s, seed_tag=coin if h == "15m" else f"{coin}|{h}")
         mom = signals.momentum_up(c[idx - 2], c[idx - 1])
         kd, kc = signals.kronos_call(f["p_up"], mom, s)
         rows = pd.DataFrame({"ts": ts[idx], "last_close": c[idx - 1], "prev_close": c[idx - 2],
@@ -82,7 +91,7 @@ def run_coin(coin, cfg, deadline):
                              "p_up": f["p_up"].round(4), "kronos": kd, "kronos_conf": kc.round(4)})
         for name in signals.BASELINES:
             rows[name] = signals.baseline_calls(name, coin, ts[idx], c[idx - 2], c[idx - 1])[0]
-        save_rows(coin, rows)
+        save_rows(coin, rows, base)
         print(f"  {coin}: saved through {pd.to_datetime(ts[idx[-1]], unit='s', utc=True)}"
               f" ({b0 + len(idx)}/{len(targets)})", flush=True)
     return True
@@ -95,15 +104,20 @@ def main():
     ap.add_argument("--reset", action="store_true", help="discard saved results if config changed")
     ap.add_argument("--no-site", action="store_true", help="skip rebuilding dashboard data")
     ap.add_argument("--prepare-only", action="store_true", help="only check/reset saved results")
+    ap.add_argument("--horizon", choices=list(HORIZONS), default="15m",
+                    help="candle size to predict: 15m (main), 1h, 6h or 1d")
     args = ap.parse_args()
     cfg = load_json(BACKTEST_FILE)
     check_meta(cfg, args.reset)
     if args.prepare_only:
         return
     deadline = time.time() + args.max_minutes * 60
-    complete = all([run_coin(c, cfg, deadline) for c in ([args.coin] if args.coin else COINS)])
+    complete = all([run_coin(c, cfg, deadline, args.horizon) for c in ([args.coin] if args.coin else COINS)])
     # Tell the workflow whether another chunk is needed.
-    (BACKTEST_DIR / f"status-{args.coin or 'all'}.txt").write_text("complete\n" if complete else "incomplete\n")
+    tag = args.coin or "all"
+    if args.horizon != "15m":
+        tag += f"-{args.horizon}"
+    (BACKTEST_DIR / f"status-{tag}.txt").write_text("complete\n" if complete else "incomplete\n")
     if not args.no_site:
         from . import site
         site.build_backtest()

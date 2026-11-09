@@ -4,13 +4,14 @@
    (last 1/3, never used for choosing). Settings that only win on Choose were probably lucky. */
 const TR = {
   data: {},
-  s: { coin: "BTC-USD", minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: false },
+  s: { coin: "BTC-USD", tf: "15m", minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: false },
   grid: null,
   KEY: "candlelab-trials",
 };
 try { Object.assign(TR.s, JSON.parse(localStorage.getItem(TR.KEY) || "{}")); } catch {}
 const trSave = () => { try { localStorage.setItem(TR.KEY, JSON.stringify(TR.s)); } catch {} };
 
+const TR_MOVE_MAX = { "15m": 50, "1h": 100, "6h": 200, "1d": 400 };  // slider max, basis points
 const TR_PRESETS = [
   { name: "Kronos as-is", why: "the current champion's way: call every candle", s: { minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: false } },
   { name: "Only when confident", why: "skip unless 70%+ of samples agree", s: { minConf: 0.7, blend: 0, minMove: 0, hold: false, invert: false } },
@@ -20,13 +21,14 @@ const TR_PRESETS = [
   { name: "Do the opposite", why: "bet against every Kronos call", s: { minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: true } },
 ];
 
-async function trLoad(coin) {
-  if (TR.data[coin] !== undefined) return TR.data[coin];
+async function trLoad(coin, tf = TR.s.tf) {
+  const key = coin + "|" + tf;
+  if (TR.data[key] !== undefined) return TR.data[key];
   try {
-    const r = await fetch(`data/trials-${coin}.json?_=${Math.floor(Date.now() / 600000)}`);
-    TR.data[coin] = r.ok ? await r.json() : null;
-  } catch { TR.data[coin] = null; }
-  return TR.data[coin];
+    const r = await fetch(`data/trials-${coin}${tf === "15m" ? "" : "-" + tf}.json?_=${Math.floor(Date.now() / 600000)}`);
+    TR.data[key] = r.ok ? await r.json() : null;
+  } catch { TR.data[key] = null; }
+  return TR.data[key];
 }
 
 /* Score one setting on candles [a, b). Returns calls, hits, coverage, trading P&L (fee), $1-bet P&L (venue). */
@@ -83,12 +85,14 @@ function renderTrials() {
       Settings that need Kronos itself re-run (context length, samples, temperature) are tested by the nightly <b>Experiments</b> instead.</p></div>
     <div class="chips" role="group" aria-label="Coin" style="margin-top:14px">${["BTC-USD", "ETH-USD", "SOL-USD"].map((c) =>
       `<button class="chip" data-trc="${c}" aria-pressed="${s.coin === c}">${c.replace("-USD", "")}</button>`).join("")}</div>
+    <div class="chips feechips" role="group" aria-label="Timeframe"><span class="rangeinfo" style="margin:0 4px 0 0">Timeframe:</span>${[["15m", "15 min"], ["1h", "1 hour"], ["6h", "6 hours"], ["1d", "1 day"]].map(([k, l]) =>
+      `<button class="chip" data-trtf="${k}" aria-pressed="${s.tf === k}">${l}</button>`).join("")}</div>
     ${feeChips()}${venueChips()}
     <h2>Quick ideas</h2><div class="chips">${TR_PRESETS.map((p, i) => `<button class="chip" data-trp="${i}" title="${esc(p.why)}">${esc(p.name)}</button>`).join("")}</div>
     <h2>Your settings</h2>
     <div class="card tr-controls">
       ${slider("minConf", "Only call when samples agree at least ", 0.5, 1, 0.05, (v) => Math.round(v * 100) + "%")}
-      ${slider("minMove", "Only call when the predicted move is at least ", 0, 50, 1, (v) => (v / 100).toFixed(2) + "%")}
+      ${slider("minMove", "Only call when the predicted move is at least ", 0, TR_MOVE_MAX[s.tf] || 50, (TR_MOVE_MAX[s.tf] || 50) / 50, (v) => (v / 100).toFixed(2) + "%")}
       ${slider("blend", "Mix in momentum ", 0, 0.5, 0.05, (v) => Math.round(v * 100) + "%")}
       <label class="tr-ck"><input type="checkbox" data-trs="hold" ${s.hold ? "checked" : ""}> Trade less: keep holding through "unsure" candles; sell only on a "down" call</label>
       <label class="tr-ck"><input type="checkbox" data-trs="invert" ${s.invert ? "checked" : ""}> Do the opposite of Kronos</label>
@@ -103,7 +107,7 @@ async function drawTrials() {
   const out = $("#tr-out");
   const d = await trLoad(TR.s.coin);
   if (!out) return;
-  if (!d || !d.p.length) { out.innerHTML = `<p class="muted pad">No backtest forecasts for ${TR.s.coin} yet. They appear as the backtest runs.</p>`; return; }
+  if (!d || !d.p.length) { out.innerHTML = `<p class="muted pad">No ${TR.s.tf} backtest forecasts for ${TR.s.coin} yet. They appear as the backtest runs.</p>`; return; }
   const { n, cut } = trSplit(d), fee = FEE_RATE(), venue = state.venue;
   const base = { minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: false };
   const mine = [trRun(d, TR.s, 0, cut, fee, venue), trRun(d, TR.s, cut, n, fee, venue)];
@@ -119,7 +123,8 @@ async function drawTrials() {
     </tbody></table></div>${warn}
     <div class="grid2" style="margin-top:10px"><div><h2>$1 bets, running total</h2><div class="chartbox"><canvas id="trBet"></canvas></div></div>
       <div><h2>Paper trading vs holding</h2><div class="chartbox"><canvas id="trPnl"></canvas></div></div></div>
-    <p class="note">The shaded line marks where Choose ends and Check begins. ${num(n)} candles of ${TR.s.coin.replace("-USD", "")} history.</p>`;
+    <p class="note">The dotted line marks where Choose ends and Check begins. ${num(n)} ${TR.s.tf} candles of ${TR.s.coin.replace("-USD", "")} history.
+      The "big move" slider is in % of price; on longer timeframes moves are bigger, so try higher values.</p>`;
   // continue Check from where Choose ended so each line is one continuous history
   const join = (rs, key) => {
     const a = rs[0].curve.map((p) => ({ x: trTime(d, p.i), y: p[key] }));
@@ -143,7 +148,7 @@ async function drawTrials() {
     { label: "Hold coin", borderColor: css("--s-hold"), backgroundColor: css("--s-hold"), borderDash: [6, 3], data: hd },
     { label: "Choose | Check", borderColor: "#5c5f66", borderDash: [2, 3], borderWidth: 1, pointRadius: 0, data: mark([...eq, ...hd].map((p) => p.y)) },
   ], { refLine: { y: 0, label: "Break-even" }, xType: "days" });
-  if (TR.grid && TR.grid.coin === TR.s.coin) drawGrid();
+  if (TR.grid && TR.grid.coin === TR.s.coin && TR.grid.tf === TR.s.tf) drawGrid();
 }
 
 async function runGrid() {
@@ -154,7 +159,7 @@ async function runGrid() {
   await new Promise((r) => setTimeout(r, 30));
   const { n, cut } = trSplit(d), fee = FEE_RATE(), venue = state.venue, rows = [];
   for (const minConf of [0.5, 0.6, 0.7, 0.8, 0.9])
-    for (const minMove of [0, 5, 10, 15, 25, 40])
+    for (const minMove of [0, 5, 10, 15, 25, 40].map((x) => x * (TR_MOVE_MAX[TR.s.tf] || 50) / 50))
       for (const blend of [0, 0.2, 0.35, 0.5])
         for (const hold of [false, true]) {
           const s = { minConf, minMove, blend, hold, invert: false };
@@ -163,7 +168,7 @@ async function runGrid() {
           rows.push({ s, a, b: trRun(d, s, cut, n, fee, venue) });
         }
   rows.sort((x, y) => y.a.bet - x.a.bet);
-  TR.grid = { coin: TR.s.coin, rows: rows.slice(0, 12), tried: rows.length };
+  TR.grid = { coin: TR.s.coin, tf: TR.s.tf, rows: rows.slice(0, 12), tried: rows.length };
   drawGrid();
 }
 
@@ -194,6 +199,7 @@ function bindTrials() {
     clearTimeout(TR._t); TR._t = setTimeout(rerun, 120);
   }));
   document.querySelectorAll("[data-trc]").forEach((b) => b.addEventListener("click", () => { TR.s.coin = b.dataset.trc; TR.grid = null; trSave(); render(); }));
+  document.querySelectorAll("[data-trtf]").forEach((b) => b.addEventListener("click", () => { TR.s.tf = b.dataset.trtf; TR.grid = null; trSave(); render(); }));
   document.querySelectorAll("[data-trp]").forEach((b) => b.addEventListener("click", () => { Object.assign(TR.s, TR_PRESETS[+b.dataset.trp].s); trSave(); render(); }));
   document.querySelectorAll("[data-trgrid]").forEach((b) => b.addEventListener("click", runGrid));
   if (TR.bound) return;
