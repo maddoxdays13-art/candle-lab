@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-09T19:31:19Z",
+  "updated_at": "2026-11-09T19:46:20Z",
   "marks": {
     "BTC-USD": [
       {
@@ -44,6 +44,15 @@
         "conf": 0.8,
         "last": 74538.03,
         "pred": 74522.773438,
+        "actual": 74932.5,
+        "ok": 0
+      },
+      {
+        "t": 1794253500,
+        "dir": "up",
+        "conf": 0.6,
+        "last": 74932.5,
+        "pred": 74947.210938,
         "actual": null,
         "ok": null
       }
@@ -91,6 +100,15 @@
         "conf": 1.0,
         "last": 2118.06,
         "pred": 2121.559082,
+        "actual": 2133.79,
+        "ok": 1
+      },
+      {
+        "t": 1794253500,
+        "dir": "up",
+        "conf": 0.8,
+        "last": 2133.79,
+        "pred": 2137.814941,
         "actual": null,
         "ok": null
       }
@@ -138,14 +156,23 @@
         "conf": 0.9,
         "last": 86.21,
         "pred": 86.378586,
+        "actual": 86.75,
+        "ok": 1
+      },
+      {
+        "t": 1794253500,
+        "dir": "up",
+        "conf": 0.6,
+        "last": 86.75,
+        "pred": 86.773918,
         "actual": null,
         "ok": null
       }
     ]
   },
-  "last_run_at": "2026-11-09 19:31:17",
-  "total_rows": 60,
-  "scored_rows": 48,
+  "last_run_at": "2026-11-09 19:46:17",
+  "total_rows": 72,
+  "scored_rows": 60,
   "champion": {
     "model": "NeoQuasar/Kronos-small",
     "tokenizer": "NeoQuasar/Kronos-Tokenizer-base",
@@ -166,169 +193,481 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
+            "candles": 5,
+            "calls": 5,
             "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "hit_rate": 0.4,
+            "ci_low": 0.117618,
+            "ci_high": 0.76928,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
-            "mean_abs_pct_error": 0.067835,
-            "pnl_pct": -0.100858,
-            "hold_pct": -0.248025,
-            "trades": 1
+            "p_vs_50": 0.67264,
+            "mean_abs_pct_error": 0.163626,
+            "pnl_pct": -0.200757,
+            "hold_pct": 0.279882,
+            "trades": 2,
+            "pnl_by_fee": {
+              "best": -0.200757,
+              "cb_maker": -0.99835,
+              "cb_taker": -1.792743,
+              "robinhood": -1.891817
+            },
+            "hold_by_fee": {
+              "best": 0.279882,
+              "cb_maker": -0.121639,
+              "cb_taker": -0.52316,
+              "robinhood": -0.57335
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.0,
-              "hold": -0.201
+              "hold": -0.201,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": -0.201,
+                "cb_maker": -0.601,
+                "cb_taker": -1.001,
+                "robinhood": -1.051
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.0,
-              "hold": -0.17
+              "hold": -0.17,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": -0.17,
+                "cb_maker": -0.569,
+                "cb_taker": -0.969,
+                "robinhood": -1.019
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": 0.0,
-              "hold": -0.247
+              "hold": -0.247,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": -0.247,
+                "cb_maker": -0.647,
+                "cb_taker": -1.046,
+                "robinhood": -1.096
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.101,
-              "hold": -0.248
+              "hold": -0.248,
+              "pnl_f": {
+                "best": -0.101,
+                "cb_maker": -0.501,
+                "cb_taker": -0.901,
+                "robinhood": -0.951
+              },
+              "hold_f": {
+                "best": -0.248,
+                "cb_maker": -0.647,
+                "cb_taker": -1.047,
+                "robinhood": -1.097
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": -0.201,
+              "hold": 0.28,
+              "pnl_f": {
+                "best": -0.201,
+                "cb_maker": -0.998,
+                "cb_taker": -1.793,
+                "robinhood": -1.892
+              },
+              "hold_f": {
+                "best": 0.28,
+                "cb_maker": -0.122,
+                "cb_taker": -0.523,
+                "robinhood": -0.573
+              }
             }
           ]
         },
         "momentum": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
+            "candles": 5,
+            "calls": 5,
             "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "hit_rate": 0.4,
+            "ci_low": 0.117618,
+            "ci_high": 0.76928,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
+            "p_vs_50": 0.67264,
             "mean_abs_pct_error": null,
             "pnl_pct": -0.277322,
-            "hold_pct": -0.248025,
-            "trades": 2
+            "hold_pct": 0.279882,
+            "trades": 2,
+            "pnl_by_fee": {
+              "best": -0.277322,
+              "cb_maker": -1.074303,
+              "cb_taker": -1.868087,
+              "robinhood": -1.967085
+            },
+            "hold_by_fee": {
+              "best": 0.279882,
+              "cb_maker": -0.121639,
+              "cb_taker": -0.52316,
+              "robinhood": -0.57335
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.0,
-              "hold": -0.201
+              "hold": -0.201,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": -0.201,
+                "cb_maker": -0.601,
+                "cb_taker": -1.001,
+                "robinhood": -1.051
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.0,
-              "hold": -0.17
+              "hold": -0.17,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": -0.17,
+                "cb_maker": -0.569,
+                "cb_taker": -0.969,
+                "robinhood": -1.019
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": -0.177,
-              "hold": -0.247
+              "hold": -0.247,
+              "pnl_f": {
+                "best": -0.177,
+                "cb_maker": -0.577,
+                "cb_taker": -0.977,
+                "robinhood": -1.027
+              },
+              "hold_f": {
+                "best": -0.247,
+                "cb_maker": -0.647,
+                "cb_taker": -1.046,
+                "robinhood": -1.096
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.277,
-              "hold": -0.248
+              "hold": -0.248,
+              "pnl_f": {
+                "best": -0.277,
+                "cb_maker": -1.074,
+                "cb_taker": -1.868,
+                "robinhood": -1.967
+              },
+              "hold_f": {
+                "best": -0.248,
+                "cb_maker": -0.647,
+                "cb_taker": -1.047,
+                "robinhood": -1.097
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": -0.277,
+              "hold": 0.28,
+              "pnl_f": {
+                "best": -0.277,
+                "cb_maker": -1.074,
+                "cb_taker": -1.868,
+                "robinhood": -1.967
+              },
+              "hold_f": {
+                "best": 0.28,
+                "cb_maker": -0.122,
+                "cb_taker": -0.523,
+                "robinhood": -0.573
+              }
             }
           ]
         },
         "coin_flip": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
-            "hits": 4,
+            "candles": 5,
+            "calls": 5,
+            "hits": 5,
             "hit_rate": 1.0,
-            "ci_low": 0.5101,
+            "ci_low": 0.565509,
             "ci_high": 1.0,
             "coverage": 1.0,
-            "p_vs_50": 0.02275,
+            "p_vs_50": 0.012674,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.168148,
-            "hold_pct": -0.248025,
-            "trades": 2
+            "pnl_pct": 0.259821,
+            "hold_pct": 0.279882,
+            "trades": 3,
+            "pnl_by_fee": {
+              "best": 0.259821,
+              "cb_maker": -0.939685,
+              "cb_taker": -2.129586,
+              "robinhood": -2.27765
+            },
+            "hold_by_fee": {
+              "best": 0.279882,
+              "cb_maker": -0.121639,
+              "cb_taker": -0.52316,
+              "robinhood": -0.57335
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.0,
-              "hold": -0.201
+              "hold": -0.201,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": -0.201,
+                "cb_maker": -0.601,
+                "cb_taker": -1.001,
+                "robinhood": -1.051
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": -0.068,
-              "hold": -0.17
+              "hold": -0.17,
+              "pnl_f": {
+                "best": -0.068,
+                "cb_maker": -0.468,
+                "cb_taker": -0.868,
+                "robinhood": -0.918
+              },
+              "hold_f": {
+                "best": -0.17,
+                "cb_maker": -0.569,
+                "cb_taker": -0.969,
+                "robinhood": -1.019
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": -0.168,
-              "hold": -0.247
+              "hold": -0.247,
+              "pnl_f": {
+                "best": -0.168,
+                "cb_maker": -0.966,
+                "cb_taker": -1.761,
+                "robinhood": -1.86
+              },
+              "hold_f": {
+                "best": -0.247,
+                "cb_maker": -0.647,
+                "cb_taker": -1.046,
+                "robinhood": -1.096
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.168,
-              "hold": -0.248
+              "hold": -0.248,
+              "pnl_f": {
+                "best": -0.168,
+                "cb_maker": -0.966,
+                "cb_taker": -1.761,
+                "robinhood": -1.86
+              },
+              "hold_f": {
+                "best": -0.248,
+                "cb_maker": -0.647,
+                "cb_taker": -1.047,
+                "robinhood": -1.097
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.26,
+              "hold": 0.28,
+              "pnl_f": {
+                "best": 0.26,
+                "cb_maker": -0.94,
+                "cb_taker": -2.13,
+                "robinhood": -2.278
+              },
+              "hold_f": {
+                "best": 0.28,
+                "cb_maker": -0.122,
+                "cb_taker": -0.523,
+                "robinhood": -0.573
+              }
             }
           ]
         },
         "always_up": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
-            "hits": 1,
-            "hit_rate": 0.25,
-            "ci_low": 0.045586,
-            "ci_high": 0.699364,
+            "candles": 5,
+            "calls": 5,
+            "hits": 2,
+            "hit_rate": 0.4,
+            "ci_low": 0.117618,
+            "ci_high": 0.76928,
             "coverage": 1.0,
-            "p_vs_50": 0.841345,
+            "p_vs_50": 0.67264,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.248025,
-            "hold_pct": -0.248025,
-            "trades": 1
+            "pnl_pct": 0.279882,
+            "hold_pct": 0.279882,
+            "trades": 1,
+            "pnl_by_fee": {
+              "best": 0.279882,
+              "cb_maker": -0.121639,
+              "cb_taker": -0.52316,
+              "robinhood": -0.57335
+            },
+            "hold_by_fee": {
+              "best": 0.279882,
+              "cb_maker": -0.121639,
+              "cb_taker": -0.52316,
+              "robinhood": -0.57335
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": -0.201,
-              "hold": -0.201
+              "hold": -0.201,
+              "pnl_f": {
+                "best": -0.201,
+                "cb_maker": -0.601,
+                "cb_taker": -1.001,
+                "robinhood": -1.051
+              },
+              "hold_f": {
+                "best": -0.201,
+                "cb_maker": -0.601,
+                "cb_taker": -1.001,
+                "robinhood": -1.051
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": -0.17,
-              "hold": -0.17
+              "hold": -0.17,
+              "pnl_f": {
+                "best": -0.17,
+                "cb_maker": -0.569,
+                "cb_taker": -0.969,
+                "robinhood": -1.019
+              },
+              "hold_f": {
+                "best": -0.17,
+                "cb_maker": -0.569,
+                "cb_taker": -0.969,
+                "robinhood": -1.019
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": -0.247,
-              "hold": -0.247
+              "hold": -0.247,
+              "pnl_f": {
+                "best": -0.247,
+                "cb_maker": -0.647,
+                "cb_taker": -1.046,
+                "robinhood": -1.096
+              },
+              "hold_f": {
+                "best": -0.247,
+                "cb_maker": -0.647,
+                "cb_taker": -1.046,
+                "robinhood": -1.096
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.248,
-              "hold": -0.248
+              "hold": -0.248,
+              "pnl_f": {
+                "best": -0.248,
+                "cb_maker": -0.647,
+                "cb_taker": -1.047,
+                "robinhood": -1.097
+              },
+              "hold_f": {
+                "best": -0.248,
+                "cb_maker": -0.647,
+                "cb_taker": -1.047,
+                "robinhood": -1.097
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.28,
+              "hold": 0.28,
+              "pnl_f": {
+                "best": 0.28,
+                "cb_maker": -0.122,
+                "cb_taker": -0.523,
+                "robinhood": -0.573
+              },
+              "hold_f": {
+                "best": 0.28,
+                "cb_maker": -0.122,
+                "cb_taker": -0.523,
+                "robinhood": -0.573
+              }
             }
           ]
         }
@@ -339,12 +678,12 @@
           "p_value": 0.5
         },
         "coin_flip": {
-          "edge_pp": -50.0,
-          "p_value": 0.9772
+          "edge_pp": -60.0,
+          "p_value": 0.9969
         },
         "always_up": {
-          "edge_pp": 25.0,
-          "p_value": 0.2248
+          "edge_pp": 0.0,
+          "p_value": 0.5
         }
       },
       "calibration": [
@@ -389,11 +728,11 @@
           "lo": 0.8,
           "hi": 0.9,
           "stated": 0.8,
-          "calls": 1,
+          "calls": 2,
           "hits": 0,
           "actual": 0.0,
           "ci_low": 0.0,
-          "ci_high": 0.793457,
+          "ci_high": 0.657628,
           "verdict": null
         },
         {
@@ -414,185 +753,497 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 4,
-            "calls": 3,
-            "hits": 2,
-            "hit_rate": 0.666667,
-            "ci_low": 0.207655,
-            "ci_high": 0.93851,
-            "coverage": 0.75,
-            "p_vs_50": 0.281851,
-            "mean_abs_pct_error": 0.125015,
-            "pnl_pct": -0.170406,
-            "hold_pct": -0.047683,
-            "trades": 3
+            "candles": 5,
+            "calls": 4,
+            "hits": 3,
+            "hit_rate": 0.75,
+            "ci_low": 0.300636,
+            "ci_high": 0.954414,
+            "coverage": 0.8,
+            "p_vs_50": 0.158655,
+            "mean_abs_pct_error": 0.214652,
+            "pnl_pct": 0.570989,
+            "hold_pct": 0.694623,
+            "trades": 3,
+            "pnl_by_fee": {
+              "best": 0.570989,
+              "cb_maker": -0.63224,
+              "cb_taker": -1.825834,
+              "robinhood": -1.974358
+            },
+            "hold_by_fee": {
+              "best": 0.694623,
+              "cb_maker": 0.291442,
+              "cb_taker": -0.11174,
+              "robinhood": -0.162138
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.094,
-              "hold": 0.094
+              "hold": 0.094,
+              "pnl_f": {
+                "best": 0.094,
+                "cb_maker": -0.307,
+                "cb_taker": -0.708,
+                "robinhood": -0.758
+              },
+              "hold_f": {
+                "best": 0.094,
+                "cb_maker": -0.307,
+                "cb_taker": -0.708,
+                "robinhood": -0.758
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": -0.006,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": -0.006,
+                "cb_maker": -0.805,
+                "cb_taker": -1.601,
+                "robinhood": -1.701
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.202,
+                "cb_taker": -0.603,
+                "robinhood": -0.653
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": -0.006,
-              "hold": 0.016
+              "hold": 0.016,
+              "pnl_f": {
+                "best": -0.006,
+                "cb_maker": -0.805,
+                "cb_taker": -1.601,
+                "robinhood": -1.701
+              },
+              "hold_f": {
+                "best": 0.016,
+                "cb_maker": -0.384,
+                "cb_taker": -0.784,
+                "robinhood": -0.834
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.17,
-              "hold": -0.048
+              "hold": -0.048,
+              "pnl_f": {
+                "best": -0.17,
+                "cb_maker": -1.365,
+                "cb_taker": -2.55,
+                "robinhood": -2.697
+              },
+              "hold_f": {
+                "best": -0.048,
+                "cb_maker": -0.448,
+                "cb_taker": -0.848,
+                "robinhood": -0.898
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.571,
+              "hold": 0.695,
+              "pnl_f": {
+                "best": 0.571,
+                "cb_maker": -0.632,
+                "cb_taker": -1.826,
+                "robinhood": -1.974
+              },
+              "hold_f": {
+                "best": 0.695,
+                "cb_maker": 0.291,
+                "cb_taker": -0.112,
+                "robinhood": -0.162
+              }
             }
           ]
         },
         "momentum": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
+            "candles": 5,
+            "calls": 5,
             "hits": 1,
-            "hit_rate": 0.25,
-            "ci_low": 0.045586,
-            "ci_high": 0.699364,
+            "hit_rate": 0.2,
+            "ci_low": 0.036223,
+            "ci_high": 0.624472,
             "coverage": 1.0,
-            "p_vs_50": 0.841345,
+            "p_vs_50": 0.910144,
             "mean_abs_pct_error": null,
             "pnl_pct": -0.382269,
-            "hold_pct": -0.047683,
-            "trades": 2
+            "hold_pct": 0.694623,
+            "trades": 2,
+            "pnl_by_fee": {
+              "best": -0.382269,
+              "cb_maker": -1.178412,
+              "cb_taker": -1.97136,
+              "robinhood": -2.070254
+            },
+            "hold_by_fee": {
+              "best": 0.694623,
+              "cb_maker": 0.291442,
+              "cb_taker": -0.11174,
+              "robinhood": -0.162138
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.094
+              "hold": 0.094,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.094,
+                "cb_maker": -0.307,
+                "cb_taker": -0.708,
+                "robinhood": -0.758
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.202,
+                "cb_taker": -0.603,
+                "robinhood": -0.653
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": -0.283,
-              "hold": 0.016
+              "hold": 0.016,
+              "pnl_f": {
+                "best": -0.283,
+                "cb_maker": -0.682,
+                "cb_taker": -1.081,
+                "robinhood": -1.131
+              },
+              "hold_f": {
+                "best": 0.016,
+                "cb_maker": -0.384,
+                "cb_taker": -0.784,
+                "robinhood": -0.834
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.382,
-              "hold": -0.048
+              "hold": -0.048,
+              "pnl_f": {
+                "best": -0.382,
+                "cb_maker": -1.178,
+                "cb_taker": -1.971,
+                "robinhood": -2.07
+              },
+              "hold_f": {
+                "best": -0.048,
+                "cb_maker": -0.448,
+                "cb_taker": -0.848,
+                "robinhood": -0.898
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": -0.382,
+              "hold": 0.695,
+              "pnl_f": {
+                "best": -0.382,
+                "cb_maker": -1.178,
+                "cb_taker": -1.971,
+                "robinhood": -2.07
+              },
+              "hold_f": {
+                "best": 0.695,
+                "cb_maker": 0.291,
+                "cb_taker": -0.112,
+                "robinhood": -0.162
+              }
             }
           ]
         },
         "coin_flip": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
+            "candles": 5,
+            "calls": 5,
             "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "hit_rate": 0.4,
+            "ci_low": 0.117618,
+            "ci_high": 0.76928,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
+            "p_vs_50": 0.67264,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.258347,
-            "hold_pct": -0.047683,
-            "trades": 3
+            "pnl_pct": -0.358088,
+            "hold_pct": 0.694623,
+            "trades": 4,
+            "pnl_by_fee": {
+              "best": -0.358088,
+              "cb_maker": -1.944395,
+              "cb_taker": -3.511686,
+              "robinhood": -3.706268
+            },
+            "hold_by_fee": {
+              "best": 0.694623,
+              "cb_maker": 0.291442,
+              "cb_taker": -0.11174,
+              "robinhood": -0.162138
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.094
+              "hold": 0.094,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.094,
+                "cb_maker": -0.307,
+                "cb_taker": -0.708,
+                "robinhood": -0.758
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.006,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": 0.006,
+                "cb_maker": -0.395,
+                "cb_taker": -0.795,
+                "robinhood": -0.845
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.202,
+                "cb_taker": -0.603,
+                "robinhood": -0.653
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": -0.094,
-              "hold": 0.016
+              "hold": 0.016,
+              "pnl_f": {
+                "best": -0.094,
+                "cb_maker": -0.893,
+                "cb_taker": -1.688,
+                "robinhood": -1.787
+              },
+              "hold_f": {
+                "best": 0.016,
+                "cb_maker": -0.384,
+                "cb_taker": -0.784,
+                "robinhood": -0.834
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.258,
-              "hold": -0.048
+              "hold": -0.048,
+              "pnl_f": {
+                "best": -0.258,
+                "cb_maker": -1.452,
+                "cb_taker": -2.635,
+                "robinhood": -2.783
+              },
+              "hold_f": {
+                "best": -0.048,
+                "cb_maker": -0.448,
+                "cb_taker": -0.848,
+                "robinhood": -0.898
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": -0.358,
+              "hold": 0.695,
+              "pnl_f": {
+                "best": -0.358,
+                "cb_maker": -1.944,
+                "cb_taker": -3.512,
+                "robinhood": -3.706
+              },
+              "hold_f": {
+                "best": 0.695,
+                "cb_maker": 0.291,
+                "cb_taker": -0.112,
+                "robinhood": -0.162
+              }
             }
           ]
         },
         "always_up": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
-            "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "candles": 5,
+            "calls": 5,
+            "hits": 3,
+            "hit_rate": 0.6,
+            "ci_low": 0.23072,
+            "ci_high": 0.882382,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
+            "p_vs_50": 0.32736,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.047683,
-            "hold_pct": -0.047683,
-            "trades": 1
+            "pnl_pct": 0.694623,
+            "hold_pct": 0.694623,
+            "trades": 1,
+            "pnl_by_fee": {
+              "best": 0.694623,
+              "cb_maker": 0.291442,
+              "cb_taker": -0.11174,
+              "robinhood": -0.162138
+            },
+            "hold_by_fee": {
+              "best": 0.694623,
+              "cb_maker": 0.291442,
+              "cb_taker": -0.11174,
+              "robinhood": -0.162138
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.094,
-              "hold": 0.094
+              "hold": 0.094,
+              "pnl_f": {
+                "best": 0.094,
+                "cb_maker": -0.307,
+                "cb_taker": -0.708,
+                "robinhood": -0.758
+              },
+              "hold_f": {
+                "best": 0.094,
+                "cb_maker": -0.307,
+                "cb_taker": -0.708,
+                "robinhood": -0.758
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.2,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": 0.2,
+                "cb_maker": -0.202,
+                "cb_taker": -0.603,
+                "robinhood": -0.653
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.202,
+                "cb_taker": -0.603,
+                "robinhood": -0.653
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": 0.016,
-              "hold": 0.016
+              "hold": 0.016,
+              "pnl_f": {
+                "best": 0.016,
+                "cb_maker": -0.384,
+                "cb_taker": -0.784,
+                "robinhood": -0.834
+              },
+              "hold_f": {
+                "best": 0.016,
+                "cb_maker": -0.384,
+                "cb_taker": -0.784,
+                "robinhood": -0.834
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.048,
-              "hold": -0.048
+              "hold": -0.048,
+              "pnl_f": {
+                "best": -0.048,
+                "cb_maker": -0.448,
+                "cb_taker": -0.848,
+                "robinhood": -0.898
+              },
+              "hold_f": {
+                "best": -0.048,
+                "cb_maker": -0.448,
+                "cb_taker": -0.848,
+                "robinhood": -0.898
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.695,
+              "hold": 0.695,
+              "pnl_f": {
+                "best": 0.695,
+                "cb_maker": 0.291,
+                "cb_taker": -0.112,
+                "robinhood": -0.162
+              },
+              "hold_f": {
+                "best": 0.695,
+                "cb_maker": 0.291,
+                "cb_taker": -0.112,
+                "robinhood": -0.162
+              }
             }
           ]
         }
       },
       "kronos_vs": {
         "momentum": {
-          "edge_pp": 41.67,
-          "p_value": 0.1154
+          "edge_pp": 55.0,
+          "p_value": 0.0251
         },
         "coin_flip": {
-          "edge_pp": 16.67,
-          "p_value": 0.326
+          "edge_pp": 35.0,
+          "p_value": 0.1279
         },
         "always_up": {
-          "edge_pp": 16.67,
-          "p_value": 0.326
+          "edge_pp": 15.0,
+          "p_value": 0.3131
         }
       },
       "calibration": [
@@ -648,12 +1299,12 @@
           "bin": "90-100%",
           "lo": 0.9,
           "hi": 1.0,
-          "stated": 0.9,
-          "calls": 1,
-          "hits": 0,
-          "actual": 0.0,
-          "ci_low": 0.0,
-          "ci_high": 0.793457,
+          "stated": 0.95,
+          "calls": 2,
+          "hits": 1,
+          "actual": 0.5,
+          "ci_low": 0.094529,
+          "ci_high": 0.905471,
           "verdict": null
         }
       ]
@@ -662,181 +1313,493 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
-            "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "candles": 5,
+            "calls": 5,
+            "hits": 3,
+            "hit_rate": 0.6,
+            "ci_low": 0.23072,
+            "ci_high": 0.882382,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
-            "mean_abs_pct_error": 0.242927,
-            "pnl_pct": -0.243091,
-            "hold_pct": 0.199996,
-            "trades": 3
+            "p_vs_50": 0.32736,
+            "mean_abs_pct_error": 0.27997,
+            "pnl_pct": 0.381764,
+            "hold_pct": 0.827626,
+            "trades": 3,
+            "pnl_by_fee": {
+              "best": 0.381764,
+              "cb_maker": -0.819202,
+              "cb_taker": -2.01055,
+              "robinhood": -2.158794
+            },
+            "hold_by_fee": {
+              "best": 0.827626,
+              "cb_maker": 0.423912,
+              "cb_taker": 0.020198,
+              "robinhood": -0.030267
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.177,
-              "hold": 0.177
+              "hold": 0.177,
+              "pnl_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              },
+              "hold_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.077,
-              "hold": 0.467
+              "hold": 0.467,
+              "pnl_f": {
+                "best": 0.077,
+                "cb_maker": -0.723,
+                "cb_taker": -1.52,
+                "robinhood": -1.619
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": 0.077,
-              "hold": 0.421
+              "hold": 0.421,
+              "pnl_f": {
+                "best": 0.077,
+                "cb_maker": -0.723,
+                "cb_taker": -1.52,
+                "robinhood": -1.619
+              },
+              "hold_f": {
+                "best": 0.421,
+                "cb_maker": 0.019,
+                "cb_taker": -0.383,
+                "robinhood": -0.434
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": -0.243,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": -0.243,
+                "cb_maker": -1.437,
+                "cb_taker": -2.621,
+                "robinhood": -2.768
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.201,
+                "cb_taker": -0.602,
+                "robinhood": -0.653
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.382,
+              "hold": 0.828,
+              "pnl_f": {
+                "best": 0.382,
+                "cb_maker": -0.819,
+                "cb_taker": -2.011,
+                "robinhood": -2.159
+              },
+              "hold_f": {
+                "best": 0.828,
+                "cb_maker": 0.424,
+                "cb_taker": 0.02,
+                "robinhood": -0.03
+              }
             }
           ]
         },
         "momentum": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
+            "candles": 5,
+            "calls": 5,
             "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "hit_rate": 0.4,
+            "ci_low": 0.117618,
+            "ci_high": 0.76928,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
+            "p_vs_50": 0.67264,
             "mean_abs_pct_error": null,
             "pnl_pct": 0.0,
-            "hold_pct": 0.199996,
-            "trades": 0
+            "hold_pct": 0.827626,
+            "trades": 0,
+            "pnl_by_fee": {
+              "best": 0.0,
+              "cb_maker": 0.0,
+              "cb_taker": 0.0,
+              "robinhood": 0.0
+            },
+            "hold_by_fee": {
+              "best": 0.827626,
+              "cb_maker": 0.423912,
+              "cb_taker": 0.020198,
+              "robinhood": -0.030267
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.177
+              "hold": 0.177,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.467
+              "hold": 0.467,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.421
+              "hold": 0.421,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.421,
+                "cb_maker": 0.019,
+                "cb_taker": -0.383,
+                "robinhood": -0.434
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": 0.0,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.201,
+                "cb_taker": -0.602,
+                "robinhood": -0.653
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.0,
+              "hold": 0.828,
+              "pnl_f": {
+                "best": 0.0,
+                "cb_maker": 0.0,
+                "cb_taker": 0.0,
+                "robinhood": 0.0
+              },
+              "hold_f": {
+                "best": 0.828,
+                "cb_maker": 0.424,
+                "cb_taker": 0.02,
+                "robinhood": -0.03
+              }
             }
           ]
         },
         "coin_flip": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
+            "candles": 5,
+            "calls": 5,
             "hits": 4,
-            "hit_rate": 1.0,
-            "ci_low": 0.5101,
-            "ci_high": 1.0,
+            "hit_rate": 0.8,
+            "ci_low": 0.375528,
+            "ci_high": 0.963777,
             "coverage": 1.0,
-            "p_vs_50": 0.02275,
+            "p_vs_50": 0.089856,
             "mean_abs_pct_error": null,
             "pnl_pct": 0.366853,
-            "hold_pct": 0.199996,
-            "trades": 2
+            "hold_pct": 0.827626,
+            "trades": 2,
+            "pnl_by_fee": {
+              "best": 0.366853,
+              "cb_maker": -0.435277,
+              "cb_taker": -1.234188,
+              "robinhood": -1.333826
+            },
+            "hold_by_fee": {
+              "best": 0.827626,
+              "cb_maker": 0.423912,
+              "cb_taker": 0.020198,
+              "robinhood": -0.030267
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.177,
-              "hold": 0.177
+              "hold": 0.177,
+              "pnl_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              },
+              "hold_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.467,
-              "hold": 0.467
+              "hold": 0.467,
+              "pnl_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": 0.367,
-              "hold": 0.421
+              "hold": 0.421,
+              "pnl_f": {
+                "best": 0.367,
+                "cb_maker": -0.435,
+                "cb_taker": -1.234,
+                "robinhood": -1.334
+              },
+              "hold_f": {
+                "best": 0.421,
+                "cb_maker": 0.019,
+                "cb_taker": -0.383,
+                "robinhood": -0.434
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": 0.367,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": 0.367,
+                "cb_maker": -0.435,
+                "cb_taker": -1.234,
+                "robinhood": -1.334
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.201,
+                "cb_taker": -0.602,
+                "robinhood": -0.653
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.367,
+              "hold": 0.828,
+              "pnl_f": {
+                "best": 0.367,
+                "cb_maker": -0.435,
+                "cb_taker": -1.234,
+                "robinhood": -1.334
+              },
+              "hold_f": {
+                "best": 0.828,
+                "cb_maker": 0.424,
+                "cb_taker": 0.02,
+                "robinhood": -0.03
+              }
             }
           ]
         },
         "always_up": {
           "summary": {
-            "candles": 4,
-            "calls": 4,
-            "hits": 2,
-            "hit_rate": 0.5,
-            "ci_low": 0.150036,
-            "ci_high": 0.849964,
+            "candles": 5,
+            "calls": 5,
+            "hits": 3,
+            "hit_rate": 0.6,
+            "ci_low": 0.23072,
+            "ci_high": 0.882382,
             "coverage": 1.0,
-            "p_vs_50": 0.5,
+            "p_vs_50": 0.32736,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.199996,
-            "hold_pct": 0.199996,
-            "trades": 1
+            "pnl_pct": 0.827626,
+            "hold_pct": 0.827626,
+            "trades": 1,
+            "pnl_by_fee": {
+              "best": 0.827626,
+              "cb_maker": 0.423912,
+              "cb_taker": 0.020198,
+              "robinhood": -0.030267
+            },
+            "hold_by_fee": {
+              "best": 0.827626,
+              "cb_maker": 0.423912,
+              "cb_taker": 0.020198,
+              "robinhood": -0.030267
+            }
           },
           "rolling": [
             {
               "t": 1794241800,
               "hit": null,
               "pnl": 0.177,
-              "hold": 0.177
+              "hold": 0.177,
+              "pnl_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              },
+              "hold_f": {
+                "best": 0.177,
+                "cb_maker": -0.224,
+                "cb_taker": -0.625,
+                "robinhood": -0.675
+              }
             },
             {
               "t": 1794249000,
               "hit": null,
               "pnl": 0.467,
-              "hold": 0.467
+              "hold": 0.467,
+              "pnl_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              }
             },
             {
               "t": 1794250800,
               "hit": null,
               "pnl": 0.421,
-              "hold": 0.421
+              "hold": 0.421,
+              "pnl_f": {
+                "best": 0.421,
+                "cb_maker": 0.019,
+                "cb_taker": -0.383,
+                "robinhood": -0.434
+              },
+              "hold_f": {
+                "best": 0.421,
+                "cb_maker": 0.019,
+                "cb_taker": -0.383,
+                "robinhood": -0.434
+              }
             },
             {
               "t": 1794251700,
               "hit": null,
               "pnl": 0.2,
-              "hold": 0.2
+              "hold": 0.2,
+              "pnl_f": {
+                "best": 0.2,
+                "cb_maker": -0.201,
+                "cb_taker": -0.602,
+                "robinhood": -0.653
+              },
+              "hold_f": {
+                "best": 0.2,
+                "cb_maker": -0.201,
+                "cb_taker": -0.602,
+                "robinhood": -0.653
+              }
+            },
+            {
+              "t": 1794252600,
+              "hit": null,
+              "pnl": 0.828,
+              "hold": 0.828,
+              "pnl_f": {
+                "best": 0.828,
+                "cb_maker": 0.424,
+                "cb_taker": 0.02,
+                "robinhood": -0.03
+              },
+              "hold_f": {
+                "best": 0.828,
+                "cb_maker": 0.424,
+                "cb_taker": 0.02,
+                "robinhood": -0.03
+              }
             }
           ]
         }
       },
       "kronos_vs": {
         "momentum": {
-          "edge_pp": 0.0,
-          "p_value": 0.5
+          "edge_pp": 20.0,
+          "p_value": 0.2593
         },
         "coin_flip": {
-          "edge_pp": -50.0,
-          "p_value": 0.9772
+          "edge_pp": -20.0,
+          "p_value": 0.7602
         },
         "always_up": {
           "edge_pp": 0.0,
@@ -896,12 +1859,12 @@
           "bin": "90-100%",
           "lo": 0.9,
           "hi": 1.0,
-          "stated": 1.0,
-          "calls": 1,
-          "hits": 0,
-          "actual": 0.0,
-          "ci_low": 0.0,
-          "ci_high": 0.793457,
+          "stated": 0.95,
+          "calls": 2,
+          "hits": 1,
+          "actual": 0.5,
+          "ci_low": 0.094529,
+          "ci_high": 0.905471,
           "verdict": null
         }
       ]
@@ -910,56 +1873,56 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 12,
-            "calls": 11,
-            "hits": 6,
-            "hit_rate": 0.545455,
-            "ci_low": 0.280088,
-            "ci_high": 0.78729,
-            "coverage": 0.916667,
-            "p_vs_50": 0.381512,
-            "mean_abs_pct_error": 0.145259
+            "candles": 15,
+            "calls": 14,
+            "hits": 8,
+            "hit_rate": 0.571429,
+            "ci_low": 0.325903,
+            "ci_high": 0.786195,
+            "coverage": 0.933333,
+            "p_vs_50": 0.29649,
+            "mean_abs_pct_error": 0.219416
           },
           "rolling": []
         },
         "momentum": {
           "summary": {
-            "candles": 12,
-            "calls": 12,
+            "candles": 15,
+            "calls": 15,
             "hits": 5,
-            "hit_rate": 0.416667,
-            "ci_low": 0.193257,
-            "ci_high": 0.680493,
+            "hit_rate": 0.333333,
+            "ci_low": 0.151761,
+            "ci_high": 0.582869,
             "coverage": 1.0,
-            "p_vs_50": 0.718149,
+            "p_vs_50": 0.901647,
             "mean_abs_pct_error": null
           },
           "rolling": []
         },
         "coin_flip": {
           "summary": {
-            "candles": 12,
-            "calls": 12,
-            "hits": 10,
-            "hit_rate": 0.833333,
-            "ci_low": 0.551964,
-            "ci_high": 0.953036,
+            "candles": 15,
+            "calls": 15,
+            "hits": 11,
+            "hit_rate": 0.733333,
+            "ci_low": 0.480491,
+            "ci_high": 0.891027,
             "coverage": 1.0,
-            "p_vs_50": 0.010461,
+            "p_vs_50": 0.035351,
             "mean_abs_pct_error": null
           },
           "rolling": []
         },
         "always_up": {
           "summary": {
-            "candles": 12,
-            "calls": 12,
-            "hits": 5,
-            "hit_rate": 0.416667,
-            "ci_low": 0.193257,
-            "ci_high": 0.680493,
+            "candles": 15,
+            "calls": 15,
+            "hits": 8,
+            "hit_rate": 0.533333,
+            "ci_low": 0.301166,
+            "ci_high": 0.751908,
             "coverage": 1.0,
-            "p_vs_50": 0.718149,
+            "p_vs_50": 0.398127,
             "mean_abs_pct_error": null
           },
           "rolling": []
@@ -967,16 +1930,16 @@
       },
       "kronos_vs": {
         "momentum": {
-          "edge_pp": 12.88,
-          "p_value": 0.2668
+          "edge_pp": 23.81,
+          "p_value": 0.0926
         },
         "coin_flip": {
-          "edge_pp": -28.79,
-          "p_value": 0.9405
+          "edge_pp": -16.19,
+          "p_value": 0.8229
         },
         "always_up": {
-          "edge_pp": 12.88,
-          "p_value": 0.2668
+          "edge_pp": 3.81,
+          "p_value": 0.4183
         }
       },
       "calibration": [
@@ -1021,23 +1984,23 @@
           "lo": 0.8,
           "hi": 0.9,
           "stated": 0.8,
-          "calls": 3,
+          "calls": 4,
           "hits": 1,
-          "actual": 0.333333,
-          "ci_low": 0.06149,
-          "ci_high": 0.792345,
+          "actual": 0.25,
+          "ci_low": 0.045586,
+          "ci_high": 0.699364,
           "verdict": null
         },
         {
           "bin": "90-100%",
           "lo": 0.9,
           "hi": 1.0,
-          "stated": 0.933333,
-          "calls": 3,
-          "hits": 0,
-          "actual": 0.0,
-          "ci_low": 0.0,
-          "ci_high": 0.561506,
+          "stated": 0.94,
+          "calls": 5,
+          "hits": 2,
+          "actual": 0.4,
+          "ci_low": 0.117618,
+          "ci_high": 0.76928,
           "verdict": null
         }
       ]
@@ -1046,15 +2009,32 @@
   "recent": [
     {
       "coin": "BTC-USD",
-      "t": 1794252600,
-      "last_close": 74538.03,
+      "t": 1794253500,
+      "last_close": 74932.5,
       "actual_close": null,
-      "pred_close": 74522.773438,
-      "kronos": "down",
+      "pred_close": 74947.210938,
+      "kronos": "up",
+      "conf": 0.6,
+      "kronos_correct": null,
+      "pct_error": null,
+      "momentum": "up",
+      "momentum_correct": null,
+      "coin_flip": "down",
+      "coin_flip_correct": null,
+      "always_up": "up",
+      "always_up_correct": null
+    },
+    {
+      "coin": "ETH-USD",
+      "t": 1794253500,
+      "last_close": 2133.79,
+      "actual_close": null,
+      "pred_close": 2137.814941,
+      "kronos": "up",
       "conf": 0.8,
       "kronos_correct": null,
       "pct_error": null,
-      "momentum": "down",
+      "momentum": "up",
       "momentum_correct": null,
       "coin_flip": "up",
       "coin_flip_correct": null,
@@ -1062,38 +2042,72 @@
       "always_up_correct": null
     },
     {
-      "coin": "ETH-USD",
-      "t": 1794252600,
-      "last_close": 2118.06,
+      "coin": "SOL-USD",
+      "t": 1794253500,
+      "last_close": 86.75,
       "actual_close": null,
-      "pred_close": 2121.559082,
+      "pred_close": 86.773918,
       "kronos": "up",
-      "conf": 1.0,
+      "conf": 0.6,
       "kronos_correct": null,
       "pct_error": null,
-      "momentum": "down",
+      "momentum": "up",
       "momentum_correct": null,
-      "coin_flip": "down",
+      "coin_flip": "up",
       "coin_flip_correct": null,
       "always_up": "up",
       "always_up_correct": null
     },
     {
+      "coin": "BTC-USD",
+      "t": 1794252600,
+      "last_close": 74538.03,
+      "actual_close": 74932.5,
+      "pred_close": 74522.773438,
+      "kronos": "down",
+      "conf": 0.8,
+      "kronos_correct": 0,
+      "pct_error": -0.54679,
+      "momentum": "down",
+      "momentum_correct": 0,
+      "coin_flip": "up",
+      "coin_flip_correct": 1,
+      "always_up": "up",
+      "always_up_correct": 1
+    },
+    {
+      "coin": "ETH-USD",
+      "t": 1794252600,
+      "last_close": 2118.06,
+      "actual_close": 2133.79,
+      "pred_close": 2121.559082,
+      "kronos": "up",
+      "conf": 1.0,
+      "kronos_correct": 1,
+      "pct_error": -0.5732,
+      "momentum": "down",
+      "momentum_correct": 0,
+      "coin_flip": "down",
+      "coin_flip_correct": 0,
+      "always_up": "up",
+      "always_up_correct": 1
+    },
+    {
       "coin": "SOL-USD",
       "t": 1794252600,
       "last_close": 86.21,
-      "actual_close": null,
+      "actual_close": 86.75,
       "pred_close": 86.378586,
       "kronos": "up",
       "conf": 0.9,
-      "kronos_correct": null,
-      "pct_error": null,
+      "kronos_correct": 1,
+      "pct_error": -0.42814,
       "momentum": "down",
-      "momentum_correct": null,
+      "momentum_correct": 0,
       "coin_flip": "down",
-      "coin_flip_correct": null,
+      "coin_flip_correct": 0,
       "always_up": "up",
-      "always_up_correct": null
+      "always_up_correct": 1
     },
     {
       "coin": "BTC-USD",
