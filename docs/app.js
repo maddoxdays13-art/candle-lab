@@ -309,21 +309,23 @@ async function render() {
   main.querySelectorAll("[data-coin]").forEach((b) => b.addEventListener("click", () => { state.coin = b.dataset.coin; save(); render(); }));
 }
 
-/* ------------------------------------------------------------ live prices (fetched by your browser straight from Coinbase) */
+/* ------------------------------------------------------------ live candlestick charts
+   Candles come straight from Coinbase's free public API, and Coinbase's real-time feed
+   updates the forming candle on every trade. Charts: TradingView Lightweight Charts. */
 const PRICE_COINS = ["BTC-USD", "ETH-USD", "SOL-USD"];
-// g = candle size in seconds, n = how many candles. LIVE streams every trade instead.
+// g = candle size in seconds. LIVE builds 1-second candles from the trade stream.
 const RANGES = {
-  LIVE: { live: true, span: 300, label: "past 5 min" },
-  "1H": { g: 60, n: 60, label: "past hour" },
-  "4H": { g: 60, n: 240, label: "past 4 hours" },
-  "1D": { g: 900, n: 96, label: "past day" },
-  "3D": { g: 900, n: 288, label: "past 3 days" },
-  "1W": { g: 3600, n: 168, label: "past week" },
+  LIVE: { g: 1, live: true, label: "1-second candles" },
+  "1m": { g: 60, label: "1-minute candles" },
+  "5m": { g: 300, label: "5-minute candles" },
+  "15m": { g: 900, label: "15-minute candles (Kronos's)" },
+  "1h": { g: 3600, label: "1-hour candles" },
 };
+const SHOW_BARS = 70;   // start zoomed in on the latest ~70 candles; scroll or pinch to zoom
 const CB = "https://api.exchange.coinbase.com";
-const price = { range: "1D", timers: [], charts: {}, candles: {}, last: {}, ticks: {}, ws: null, drawQueued: false };
-try { price.range = localStorage.getItem("candlelab-range") || "1D"; } catch {}
-if (!RANGES[price.range]) price.range = "1D";
+const price = { range: "15m", gen: 0, timers: [], charts: {}, series: {}, bars: {}, lines: {}, last: {}, ws: null, wsCoins: "" };
+try { price.range = localStorage.getItem("candlelab-range2") || "15m"; } catch {}
+if (!RANGES[price.range]) price.range = "15m";
 
 const fmtPrice = (p) => p.toLocaleString([], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const hhmm = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -331,21 +333,24 @@ const hhmmss = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", mi
 
 function priceSection() {
   const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
-  return `<h2>Live prices</h2>
-  <div class="chips range" role="group" aria-label="Chart range">${Object.keys(RANGES).map((r) =>
+  return `<h2>Live candles</h2>
+  <div class="chips range" role="group" aria-label="Candle size">${Object.keys(RANGES).map((r) =>
     `<button class="chip${r === "LIVE" ? " livechip" : ""}" data-range="${r}" aria-pressed="${price.range === r}">${r === "LIVE" ? '<span class="dotlive"></span>LIVE' : r}</button>`).join("")}
     <span class="rangeinfo" id="rangeinfo"></span></div>
   <div class="pgrid${coins.length === 1 ? " one" : ""}">${coins.map((c) => `
     <div class="pcard" id="p-${c}">
       <div class="ph">
-        <div><div class="label">${c.replace("-USD", "")}</div><div class="pbig" data-f="price">–</div><div class="pchg" data-f="chg">&nbsp;</div></div>
-        <div class="pcall" data-f="call"></div>
+        <div><div class="label">${c.replace("-USD", "")}</div>
+          <div class="pbig" data-f="price">–</div><div class="pchg" data-f="chg">&nbsp;</div></div>
       </div>
-      <div class="pchart"><canvas></canvas></div>
+      <div class="odds" data-f="odds"></div>
+      <div class="pchart" data-f="chart"></div>
     </div>`).join("")}</div>
-  <p class="note">Prices come straight from Coinbase's free public feed (Robinhood's price can differ by a few dollars).
-  <b>LIVE</b> streams every trade second by second; 1H/4H use 1-minute candles, 1D/3D 15-minute candles, 1W hourly candles.
-  ▲/▼ marks are Kronos's 15-minute calls: <span class="pos">green = right</span>, <span class="neg">red = wrong</span>. The dashed blue line is Kronos's forecast for the candle forming right now.</p>`;
+  <p class="note">Scroll or pinch on a chart to zoom, drag to move back in time, double-click to snap back to now.
+  Prices come straight from Coinbase's free public feed (Robinhood's can differ by a few dollars).
+  Arrows are Kronos's calls on each 15-minute candle (<span class="pos">green = right</span>, <span class="neg">red = wrong</span>, blue = still open);
+  the dashed blue line is the price Kronos expects the current 15-minute candle to close at.
+  The Up/Down chances are the share of Kronos's samples pointing each way, not a guarantee.</p>`;
 }
 
 async function getJSON(url) {
@@ -354,172 +359,188 @@ async function getJSON(url) {
   return r.json();
 }
 
-async function loadCandles(coin) {
-  const R = RANGES[price.range];
-  if (R.live) return;
-  const end = Math.floor(Date.now() / 1000), start = end - R.n * R.g;
-  const iso = (t) => new Date(t * 1000).toISOString();
-  const rows = await getJSON(`${CB}/products/${coin}/candles?granularity=${R.g}&start=${iso(start)}&end=${iso(end)}`);
-  price.candles[coin] = { g: R.g, rows: rows.map((x) => ({ t: x[0], c: +x[4] })).sort((a, b) => a.t - b.t) };
+/* ---------- data ---------- */
+async function loadBars(coin, rangeKey = price.range) {
+  const R = RANGES[rangeKey];
+  if (R.live) {  // seed 1-second candles from the latest trades
+    const trades = await getJSON(`${CB}/products/${coin}/trades?limit=1000`);
+    const bars = new Map();
+    trades.slice().reverse().forEach((t) => tickInto(bars, 1, Math.floor(Date.parse(t.time) / 1000), +t.price));
+    bars.g = R.g;
+    return bars;
+  } else {
+    const rows = await getJSON(`${CB}/products/${coin}/candles?granularity=${R.g}`);  // latest 300 candles
+    const bars = new Map();
+    rows.sort((a, b) => a[0] - b[0]).forEach((x) => bars.set(x[0], { time: x[0], low: +x[1], high: +x[2], open: +x[3], close: +x[4] }));
+    // keep whatever the live feed has already added to the forming candle
+    const old = price.bars[coin];
+    if (old && old.g === R.g) {
+      const lastT = rows.length ? rows[rows.length - 1][0] : 0;
+      for (const [t, b] of old) {
+        if (t > lastT) bars.set(t, b);
+        else if (t === lastT) bars.set(t, mergeBar(bars.get(t), b));
+      }
+    }
+    bars.g = R.g;
+    return bars;
+  }
+}
+function mergeBar(a, b) {
+  if (!a) return b;
+  return { time: a.time, open: a.open, high: Math.max(a.high, b.high), low: Math.min(a.low, b.low), close: b.close };
+}
+function tickInto(bars, g, sec, p) {
+  const t = Math.floor(sec / g) * g;
+  const b = bars.get(t);
+  if (b) { b.high = Math.max(b.high, p); b.low = Math.min(b.low, p); b.close = p; }
+  else {
+    const prev = [...bars.values()].pop();
+    bars.set(t, { time: t, open: prev ? prev.close : p, high: Math.max(p, prev ? prev.close : p), low: Math.min(p, prev ? prev.close : p), close: p });
+    if (g === 1) for (const k of bars.keys()) { if (k < t - 900) bars.delete(k); else break; }  // keep 15 min of 1s candles
+  }
+  return bars.get(t);
 }
 
-async function loadTicker(coin) {
-  price.last[coin] = +(await getJSON(`${CB}/products/${coin}/ticker`)).price;
-}
-
-/* LIVE: keep the last trade price of each second for the past 5 minutes */
-function addTick(coin, ms, p) {
-  const m = (price.ticks[coin] ||= new Map());
-  m.set(Math.floor(ms / 1000), p);
-  const cutoff = Math.floor(Date.now() / 1000) - RANGES.LIVE.span - 5;
-  for (const k of m.keys()) { if (k < cutoff) m.delete(k); else break; }
-  price.last[coin] = p;
-}
-
-async function seedTicks(coin) {
-  const trades = await getJSON(`${CB}/products/${coin}/trades?limit=1000`);
-  price.ticks[coin] = new Map();
-  trades.slice().reverse().forEach((t) => addTick(coin, Date.parse(t.time), +t.price));
-}
-
+/* ---------- real-time feed (all candle sizes) ---------- */
 function openStream(coins) {
+  const key = coins.join(",");
+  if (price.ws && price.wsCoins === key && price.ws.readyState <= 1) return;
   closeStream();
   const ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
-  price.ws = ws;
+  price.ws = ws; price.wsCoins = key;
   ws.onopen = () => ws.send(JSON.stringify({ type: "subscribe", product_ids: coins, channels: ["ticker"] }));
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.type !== "ticker" || !m.price) return;
-    addTick(m.product_id, m.time ? Date.parse(m.time) : Date.now(), +m.price);
-    queueDraw(coins);
+    const coin = m.product_id, bars = price.bars[coin];
+    if (!bars) return;
+    const p = +m.price, sec = Math.floor((m.time ? Date.parse(m.time) : Date.now()) / 1000);
+    price.last[coin] = p;
+    const bar = tickInto(bars, bars.g, sec, p);
+    try { price.series[coin]?.update({ ...bar }); } catch {}
+    updateHeader(coin);
   };
-  ws.onclose = () => { if (price.ws === ws && RANGES[price.range].live) setTimeout(() => price.ws === ws && openStream(coins), 3000); };
+  ws.onclose = () => { if (price.ws === ws) setTimeout(() => price.ws === ws && (price.ws = null, openStream(coins)), 3000); };
 }
-function closeStream() { const ws = price.ws; price.ws = null; if (ws) try { ws.close(); } catch {} }
-function queueDraw(coins) {  // at most ~4 redraws a second, however busy the market
-  if (price.drawQueued) return;
-  price.drawQueued = true;
-  setTimeout(() => { price.drawQueued = false; coins.forEach(drawPrice); }, 250);
-}
+function closeStream() { const ws = price.ws; price.ws = null; price.wsCoins = ""; if (ws) try { ws.close(); } catch {} }
 
+/* ---------- Kronos ---------- */
 function openCall(coin) {
   const now = Date.now() / 1000;
   return (state.data.live?.marks?.[coin] || []).find((m) => m.actual == null && m.t <= now && m.t + 900 > now);
 }
+function pUp(m) { return m.dir === "up" ? m.conf : m.dir === "down" ? 1 - m.conf : 0.5; }
 
-function updateCall(coin) {
-  const el = document.querySelector(`#p-${coin} [data-f=call]`);
+function renderOdds(coin) {
+  const el = document.querySelector(`#p-${coin} [data-f=odds]`);
   if (!el) return;
+  const marks = state.data.live?.marks?.[coin] || [];
+  const done = marks.filter((m) => m.ok != null);
+  const rec = done.length ? `Kronos's live record on ${coin.replace("-USD", "")}: <b>${done.filter((m) => m.ok).length} of ${done.length}</b> right` : "No scored calls yet";
   const m = openCall(coin);
-  if (!m) { el.innerHTML = `<span class="muted">Waiting for Kronos's next call</span>`; return; }
-  const left = Math.max(0, Math.round(m.t + 900 - Date.now() / 1000));
-  el.innerHTML = `<div class="label">Kronos says</div>${dirPill(m.dir)}
-    <div class="sub">${m.dir === "skip" ? "too unsure" : pct(m.conf, 0) + " of samples agree"}</div>
-    <div class="sub">${hhmm(m.t * 1000)}–${hhmm((m.t + 900) * 1000)} candle · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>`;
-}
-
-function seriesFor(coin) {
-  const R = RANGES[price.range], nowMs = Date.now();
-  if (R.live) {
-    const m = price.ticks[coin];
-    if (!m) return [];
-    const from = Math.floor(nowMs / 1000) - R.span;
-    return [...m.entries()].filter(([s]) => s >= from).map(([s, p]) => ({ x: s * 1000, y: p }));
-  }
-  const cs = price.candles[coin];
-  if (!cs || cs.g !== R.g) return [];
-  const pts = cs.rows.filter((x) => (x.t + cs.g) * 1000 <= nowMs).map((x) => ({ x: (x.t + cs.g) * 1000, y: x.c }));
-  if (price.last[coin]) pts.push({ x: nowMs, y: price.last[coin] });
-  return pts;
-}
-
-function drawPrice(coin) {
-  const card = document.getElementById("p-" + coin);
-  if (!card) return;
-  const R = RANGES[price.range];
-  const pts = seriesFor(coin);
-  if (pts.length < 2) {
-    if (price.last[coin]) card.querySelector("[data-f=price]").textContent = "$" + fmtPrice(price.last[coin]);
+  if (!m) {
+    el.innerHTML = `<div class="olabel">Next 15-minute candle</div>
+      <div class="obar off"><div class="oup" style="width:50%">▲ UP –</div><div class="odown" style="width:50%">– DOWN ▼</div></div>
+      <div class="osub">Waiting for Kronos's next call · ${rec}</div>`;
     return;
   }
-  const first = pts[0].y, last = pts[pts.length - 1].y, up = last >= first;
-  const col = css(up ? "--good" : "--bad");
+  const up = pUp(m), left = Math.max(0, Math.round(m.t + 900 - Date.now() / 1000));
+  const now = price.last[coin];
+  const move = now && m.last ? (now / m.last - 1) * 100 : null;
+  const onTrack = move == null || m.dir === "skip" ? "" : (move > 0) === (m.dir === "up")
+    ? `<span class="pos">✓ on track</span>` : `<span class="neg">✗ going against it</span>`;
+  el.innerHTML = `<div class="olabel">Next close · ${hhmm(m.t * 1000)}–${hhmm((m.t + 900) * 1000)} candle · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>
+    <div class="obar"><div class="oup${up >= 0.5 ? " lead" : ""}" style="width:${Math.max(up * 100, 14)}%">▲ UP ${Math.round(up * 100)}%</div>
+      <div class="odown${up < 0.5 ? " lead" : ""}" style="width:${Math.max((1 - up) * 100, 14)}%">${Math.round((1 - up) * 100)}% DOWN ▼</div></div>
+    <div class="osub">Kronos ${m.dir === "skip" ? "is too unsure to call it" : "calls <b>" + m.dir.toUpperCase() + "</b>"}${m.pred != null ? ` · expects close <b>$${fmtPrice(m.pred)}</b>` : ""}
+      ${move != null ? ` · since the call: <span class="${move >= 0 ? "pos" : "neg"}">${move >= 0 ? "▲" : "▼"} ${signed(move, Math.abs(move) < 0.1 ? 3 : 2)}</span> ${onTrack}` : ""}</div>
+    <div class="osub">${rec}</div>`;
+}
 
-  card.querySelector("[data-f=price]").textContent = "$" + fmtPrice(last);
-  const chg = last - first;
-  card.querySelector("[data-f=chg]").innerHTML = `<span class="${up ? "pos" : "neg"}">${up ? "▲" : "▼"} $${fmtPrice(Math.abs(chg))} (${signed((chg / first) * 100, chg !== 0 && Math.abs(chg / first) < 0.001 ? 3 : 2)})</span> <span class="muted">${R.label}</span>`;
-  card.style.setProperty("--pc", col);
-
-  const minX = pts[0].x;
+function kronosOverlay(coin) {
+  const s = price.series[coin], R = RANGES[price.range];
+  if (!s) return;
+  const bars = price.bars[coin];
+  const first = bars && bars.size ? [...bars.keys()][0] : 0;
   const marks = (state.data.live?.marks?.[coin] || [])
-    .filter((m) => m.actual != null && m.dir !== "skip" && (m.t + 900) * 1000 >= minX)
-    .map((m) => ({ x: (m.t + 900) * 1000, y: m.actual, m }));
-  const oc = openCall(coin);
-  // Forecast line: from the candle's open to Kronos's predicted close. In LIVE it starts at the left edge.
-  const fc = oc && oc.pred != null && !R.live ? [{ x: oc.t * 1000, y: oc.last }, { x: (oc.t + 900) * 1000, y: oc.pred }] : [];
-  const target = oc && oc.pred != null && R.live ? [{ x: minX, y: oc.pred }, { x: pts[pts.length - 1].x, y: oc.pred }] : [];
-
-  const fill = (ctx) => {
-    const { chart } = ctx, area = chart.chartArea;
-    if (!area) return "transparent";
-    const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-    g.addColorStop(0, col + "55"); g.addColorStop(1, col + "00");
-    return g;
-  };
-  const datasets = [
-    { label: "Price", data: pts, borderColor: col, backgroundColor: fill, fill: "start", borderWidth: 2, pointRadius: 0, pointHoverRadius: 4,
-      tension: R.live ? 0 : 0.2, stepped: R.live ? "before" : false, order: 3 },
-    { label: "Kronos call", data: marks, showLine: false, order: 1, pointStyle: "triangle", pointRadius: 5, pointHoverRadius: 7,
-      pointRotation: (c) => (c.raw?.m.dir === "down" ? 180 : 0),
-      pointBackgroundColor: (c) => (c.raw?.m.ok ? css("--good") : css("--bad")), pointBorderColor: "#0A0A0B", pointBorderWidth: 1 },
-    { label: "Kronos forecast", data: fc, borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), borderDash: [5, 4],
-      borderWidth: 2, pointRadius: [0, 4], order: 2 },
-    { label: "Kronos target", data: target, borderColor: css("--s-kronos"), borderDash: [2, 4], borderWidth: 1.5, pointRadius: 0, order: 2 },
-  ];
-
-  const xMin = minX, xMax = Math.max(pts[pts.length - 1].x, fc.length ? fc[1].x : 0);
-  const tick = (v) => R.live ? hhmmss(v) : R.g >= 3600 || price.range === "3D"
-    ? new Date(v).toLocaleDateString([], { weekday: "short" }) + " " + hhmm(v) : hhmm(v);
-  let ch = price.charts[coin];
-  if (ch) {
-    ch.data.datasets = datasets;
-    Object.assign(ch.options.scales.x, { min: xMin, max: xMax });
-    ch.options.scales.x.ticks.callback = tick;
-    ch.update("none");
-    return;
+    .filter((m) => m.dir !== "skip" && m.t >= first && !R.live && R.g <= 900)
+    .map((m) => {
+      const t = Math.floor(m.t / R.g) * R.g;
+      const col = m.ok == null ? css("--s-kronos") : m.ok ? css("--good") : css("--bad");
+      return m.dir === "up"
+        ? { time: t, position: "belowBar", shape: "arrowUp", color: col, text: m.ok == null ? "Kronos" : m.ok ? "✓" : "✗" }
+        : { time: t, position: "aboveBar", shape: "arrowDown", color: col, text: m.ok == null ? "Kronos" : m.ok ? "✓" : "✗" };
+    });
+  try { s.setMarkers(marks); } catch {}
+  if (price.lines[coin]) { try { s.removePriceLine(price.lines[coin]); } catch {} price.lines[coin] = null; }
+  const m = openCall(coin);
+  if (m && m.pred != null) {
+    price.lines[coin] = s.createPriceLine({ price: m.pred, color: css("--s-kronos"), lineWidth: 2,
+      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: `Kronos ${hhmm((m.t + 900) * 1000)}` });
   }
-  ch = new Chart(card.querySelector("canvas"), {
-    type: "line", data: { datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
-      interaction: { mode: "nearest", intersect: false },
-      scales: {
-        x: { type: "linear", min: xMin, max: xMax, grid: { display: false }, ticks: { maxTicksLimit: 6, callback: tick } },
-        y: { position: "right", grid: { color: "#222428" }, ticks: { maxTicksLimit: 5, callback: (v) => "$" + v.toLocaleString() } },
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: {
-          title: (items) => items.length ? (RANGES[price.range].live ? hhmmss(items[0].parsed.x)
-            : new Date(items[0].parsed.x).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })) : "",
-          label: (it) => {
-            const m = it.raw?.m;
-            if (m) return `Kronos said ${m.dir.toUpperCase()} · ${m.ok ? "✓ right" : "✗ wrong"} · closed $${fmtPrice(m.actual)}`;
-            if (it.dataset.label === "Kronos forecast" || it.dataset.label === "Kronos target") return `Kronos forecast close: $${fmtPrice(it.parsed.y)}`;
-            return `$${fmtPrice(it.parsed.y)}`;
-          },
-        } },
-      },
-    },
+}
+
+/* ---------- chart ---------- */
+function updateHeader(coin) {
+  const card = document.getElementById("p-" + coin);
+  const bars = price.bars[coin];
+  if (!card || !bars || !bars.size) return;
+  const arr = [...bars.values()], last = arr[arr.length - 1].close, first = arr[0].open;
+  const up = last >= first, chg = last - first;
+  card.querySelector("[data-f=price]").textContent = "$" + fmtPrice(last);
+  const span = arr[arr.length - 1].time - arr[0].time + bars.g;
+  const spanTxt = span >= 86400 ? `${(span / 86400).toFixed(span >= 172800 ? 0 : 1)} days` : span >= 3600 ? `${(span / 3600).toFixed(span >= 7200 ? 0 : 1)} hours` : `${Math.round(span / 60)} min`;
+  card.querySelector("[data-f=chg]").innerHTML = `<span class="${up ? "pos" : "neg"}">${up ? "▲" : "▼"} $${fmtPrice(Math.abs(chg))} (${signed((chg / first) * 100)})</span> <span class="muted">past ${spanTxt}</span>`;
+  card.style.setProperty("--pc", css(up ? "--good" : "--bad"));
+}
+
+function buildChart(coin) {
+  const card = document.getElementById("p-" + coin);
+  if (!card || typeof LightweightCharts === "undefined") return;
+  const R = RANGES[price.range];
+  const el = card.querySelector("[data-f=chart]");
+  el.innerHTML = "";
+  const fmtTick = (t) => R.g >= 3600 ? new Date(t * 1000).toLocaleDateString([], { month: "short", day: "numeric" }) + " " + hhmm(t * 1000)
+    : R.g === 1 ? hhmmss(t * 1000) : hhmm(t * 1000);
+  const chart = LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: { background: { type: "solid", color: "transparent" }, textColor: "#9A9DA4", fontFamily: "Barlow, system-ui, sans-serif", fontSize: 12 },
+    grid: { vertLines: { color: "rgba(255,255,255,.04)" }, horzLines: { color: "rgba(255,255,255,.06)" } },
+    rightPriceScale: { borderColor: "#2B2D32", scaleMargins: { top: 0.12, bottom: 0.08 } },
+    timeScale: { borderColor: "#2B2D32", rightOffset: 4, barSpacing: 9, minBarSpacing: 2, timeVisible: true, secondsVisible: R.g === 1,
+      tickMarkFormatter: (t) => fmtTick(t) },
+    localization: { timeFormatter: (t) => new Date(t * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit", second: R.g === 1 ? "2-digit" : undefined }),
+      priceFormatter: (p) => "$" + fmtPrice(p) },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: { color: "rgba(255,255,255,.25)", labelBackgroundColor: "#202226" }, horzLine: { color: "rgba(255,255,255,.25)", labelBackgroundColor: "#202226" } },
   });
-  price.charts[coin] = ch;
-  state.charts.push(ch);
+  const series = chart.addCandlestickSeries({
+    upColor: "#53D337", downColor: "#FF5C61", borderUpColor: "#53D337", borderDownColor: "#FF5C61",
+    wickUpColor: "#53D337", wickDownColor: "#FF5C61", priceLineColor: "#F2F3F5", priceLineStyle: LightweightCharts.LineStyle.Dotted,
+  });
+  price.charts[coin] = chart; price.series[coin] = series; price.lines[coin] = null;
+  const data = [...(price.bars[coin]?.values() || [])].map((b) => ({ ...b }));
+  series.setData(data);
+  const show = Math.max(30, Math.min(SHOW_BARS, Math.floor(el.clientWidth / 11)));  // closer on phones
+  if (data.length > show) chart.timeScale().setVisibleLogicalRange({ from: data.length - show, to: data.length + 3 });
+  el.addEventListener("dblclick", () => chart.timeScale().scrollToRealTime());
+  kronosOverlay(coin);
+  updateHeader(coin);
+}
+
+function refreshData(coin) {  // re-sync candles from the REST API without moving the user's zoom
+  const s = price.series[coin];
+  if (!s) return;
+  s.setData([...price.bars[coin].values()].map((b) => ({ ...b })));
+  kronosOverlay(coin);
+  updateHeader(coin);
 }
 
 function stopPrices() {
   price.timers.forEach(clearInterval); price.timers = [];
   closeStream();
-  price.charts = {};
+  Object.values(price.charts).forEach((c) => { try { c.remove(); } catch {} });
+  price.charts = {}; price.series = {}; price.lines = {};
 }
 
 async function startPrices() {
@@ -528,32 +549,37 @@ async function startPrices() {
   const info = (t) => { const el = $("#rangeinfo"); if (el) el.textContent = t; };
 
   async function startRange() {
+    const gen = ++price.gen, key = price.range;   // a newer click makes this run stand down
+    const current = () => gen === price.gen;
+    const install = (c, bars) => {
+      price.bars[c] = bars;
+      const arr = [...bars.values()];
+      if (arr.length) price.last[c] = arr[arr.length - 1].close;
+    };
     price.timers.forEach(clearInterval); price.timers = [];
-    closeStream();
+    Object.values(price.charts).forEach((c) => { try { c.remove(); } catch {} });
+    price.charts = {}; price.series = {};
     const R = RANGES[price.range];
-    if (R.live) {
-      info("connecting to live trades…");
-      await all(async (c) => { await seedTicks(c); drawPrice(c); });
-      openStream(coins);
-      info("streaming every trade");
-      price.timers.push(setInterval(() => coins.forEach(drawPrice), 1000));  // keep the window sliding when trading is quiet
-    } else {
-      info("");
-      await all(async (c) => { await Promise.all([loadCandles(c), loadTicker(c)]); drawPrice(c); });
-      price.timers.push(setInterval(() => all(async (c) => { await loadTicker(c); drawPrice(c); }), 15000));
-      price.timers.push(setInterval(() => all(async (c) => { await loadCandles(c); drawPrice(c); }), R.g <= 60 ? 30000 : 60000));
-    }
-    price.timers.push(setInterval(() => coins.forEach(updateCall), 1000));
+    info(R.live ? "connecting to live trades…" : R.label);
+    price.bars = {};
+    await all(async (c) => { const b = await loadBars(c, key); if (!current()) return; install(c, b); buildChart(c); renderOdds(c); });
+    if (!current()) return;
+    openStream(coins);
+    info(R.live ? "1-second candles · streaming every trade" : R.label + " · updating live");
+    if (!R.live) price.timers.push(setInterval(() => all(async (c) => {
+      const b = await loadBars(c, key);
+      if (current()) { install(c, b); refreshData(c); }
+    }), R.g <= 60 ? 30000 : 60000));
+    price.timers.push(setInterval(() => coins.forEach(renderOdds), 1000));
   }
 
   document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => {
     if (price.range === b.dataset.range) return;
     price.range = b.dataset.range;
-    try { localStorage.setItem("candlelab-range", price.range); } catch {}
+    try { localStorage.setItem("candlelab-range2", price.range); } catch {}
     document.querySelectorAll("[data-range]").forEach((x) => x.setAttribute("aria-pressed", x === b));
     startRange();
   }));
-  coins.forEach(updateCall);
   await startRange();
 }
 

@@ -177,28 +177,39 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
   .chip:hover, .tabs button:hover, .card:hover { transform: none; }
 }
 
-/* ---------- live price charts ---------- */
-.chips.range { margin: 0 0 10px; }
+/* ---------- live candlestick charts ---------- */
+.chips.range { margin: 0 0 10px; align-items: center; }
 .chips.range .chip { padding: 4px 12px; font-size: 12px; }
-.pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
-.pcard { --pc: var(--good); position: relative; overflow: hidden; background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 8%, var(--panel)), var(--panel) 60%);
-  border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 8px; box-shadow: var(--lift); }
-.pcard::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--pc), transparent); }
-.ph { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.pbig { font: 800 30px/1.1 "Barlow", sans-serif; margin-top: 4px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
-.pchg { font-size: 13px; font-weight: 700; margin-top: 2px; }
-.pcall { text-align: right; font-size: 12px; min-width: 130px; }
-.pcall .pill { margin: 4px 0 3px; font-size: 13px; }
-.pcall .sub { color: var(--muted); font-size: 12px; }
-.pcall .sub b { color: var(--text); font-variant-numeric: tabular-nums; }
-.pchart { height: 200px; margin-top: 8px; }
-.pgrid.one .pchart { height: 340px; }
-.pgrid.one .pbig { font-size: 38px; }
-@media (max-width: 760px) { .pchart { height: 180px; } .pgrid.one .pchart { height: 260px; } .pbig { font-size: 26px; } }
-.chips.range { align-items: center; }
 .livechip { display: inline-flex; align-items: center; gap: 6px; }
 .dotlive { width: 7px; height: 7px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 6px var(--bad); }
 .livechip[aria-pressed="true"] .dotlive { animation: blink 1.2s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: .25; } }
 .rangeinfo { color: var(--muted); font-size: 12px; margin-left: 4px; }
-@media (prefers-reduced-motion: reduce) { .livechip[aria-pressed="true"] .dotlive { animation: none; } }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 10px; }
+.pcard { --pc: var(--good); position: relative; overflow: hidden; background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 8%, var(--panel)), var(--panel) 50%);
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 8px; box-shadow: var(--lift); }
+.pcard::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--pc), transparent); }
+.pbig { font: 800 30px/1.1 "Barlow", sans-serif; margin-top: 4px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.pchg { font-size: 13px; font-weight: 700; margin-top: 2px; }
+.pchart { height: 300px; margin-top: 10px; cursor: crosshair; }
+.pgrid.one .pchart { height: 460px; }
+.pgrid.one .pbig { font-size: 38px; }
+
+/* Up / Down chances: a sportsbook-style two-sided bar */
+.odds { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--bar); border: 1px solid var(--line);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.04); }
+.olabel { font: 700 11px "Barlow", sans-serif; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.olabel b { color: var(--text); font-variant-numeric: tabular-nums; }
+.obar { display: flex; gap: 3px; margin: 8px 0 6px; height: 34px; }
+.obar > div { display: flex; align-items: center; padding: 0 10px; border-radius: 7px; font: 800 14px "Barlow", sans-serif; white-space: nowrap;
+  overflow: hidden; transition: width .4s ease; background-image: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0) 55%, rgba(0,0,0,.2));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 2px 4px -1px rgba(0,0,0,.6); }
+.oup { background-color: color-mix(in srgb, var(--good) 30%, var(--panel-2)); color: var(--good); }
+.odown { justify-content: flex-end; background-color: color-mix(in srgb, var(--bad) 30%, var(--panel-2)); color: var(--bad); }
+.oup.lead { background-color: var(--good); color: var(--on-accent); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 14px -3px var(--good); }
+.odown.lead { background-color: var(--bad); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 0 14px -3px var(--bad); }
+.obar.off > div { background-color: var(--panel-2); color: var(--muted); box-shadow: none; }
+.osub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.osub b { color: var(--text); }
+@media (max-width: 760px) { .pchart { height: 280px; } .pgrid.one .pchart { height: 340px; } .pbig { font-size: 26px; } .pgrid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .livechip[aria-pressed="true"] .dotlive { animation: none; } .obar > div { transition: none; } }
