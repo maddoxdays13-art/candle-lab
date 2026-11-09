@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candle Lab</title>
+<meta name="description" content="Paper-only test of whether the Kronos model predicts 15-minute crypto candles better than simple baselines.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='6' y='8' width='6' height='16' rx='1' fill='%2322c55e'/><rect x='8.5' y='3' width='1' height='26' fill='%2322c55e'/><rect x='20' y='10' width='6' height='12' rx='1' fill='%23ef4444'/><rect x='22.5' y='5' width='1' height='22' fill='%23ef4444'/></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">▮▯</span> CANDLE <b>LAB</b></div>
+  <div class="updated" id="updated">loading…</div>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="live" aria-selected="true">Live</button>
+  <button role="tab" data-tab="backtest">Backtest</button>
+  <button role="tab" data-tab="experiments">Experiments</button>
+</nav>
+<div id="banner" class="banner" hidden></div>
+<main id="main">
+  <p class="muted pad">Loading…</p>
+</main>
+<footer class="foot">
+  Paper trading only. No real money, no exchange accounts. Data from Coinbase's public API (Kraken fallback).
+  Model: <a href="https://github.com/shiyu-coder/Kronos">Kronos</a>.
+  Hit rate = share of non-skipped calls whose direction was right. 95% range = Wilson interval;
+  if it includes 50%, the result could easily be luck.
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

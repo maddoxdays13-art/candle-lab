@@ -1,0 +1,66 @@
+{
+  "_help": "Daily champion-vs-challenger settings. See README > Experiments.",
+  "splits": {
+    "tuning": [
+      "2024-07-01",
+      "2025-12-31"
+    ],
+    "holdout": [
+      "2026-01-01",
+      "2026-10-31"
+    ],
+    "live_start": "2026-11-01"
+  },
+  "tuning_points_per_coin": 1000,
+  "holdout_points_per_coin": 2000,
+  "challengers_per_day": [
+    3,
+    5
+  ],
+  "search_space": {
+    "context_len": [
+      128,
+      256,
+      384,
+      512
+    ],
+    "sample_count": [
+      5,
+      10,
+      20
+    ],
+    "T": [
+      0.6,
+      0.8,
+      1.0,
+      1.2
+    ],
+    "top_p": [
+      0.8,
+      0.9,
+      0.95,
+      1.0
+    ],
+    "min_confidence": [
+      0.5,
+      0.55,
+      0.6,
+      0.7
+    ],
+    "momentum_blend": [
+      0.0,
+      0.2,
+      0.35,
+      0.5
+    ]
+  },
+  "promotion": {
+    "alpha": 0.05,
+    "min_margin_pp": 1.0,
+    "min_coverage": 0.25,
+    "require_pnl_not_worse": true
+  },
+  "probation_days": 14,
+  "probation_min_calls": 150,
+  "extra_models": []
+}

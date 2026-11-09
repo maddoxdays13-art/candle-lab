@@ -1,0 +1,53 @@
+name: Set up Candle Lab
+description: Python + cached virtualenv + cached Kronos weights + cached candle history
+inputs:
+  candles:
+    description: Restore/save the downloaded candle history (not needed by the live logger)
+    default: "false"
+  scope:
+    description: Separate candle cache per coin, so parallel jobs don't overwrite each other
+    default: all
+runs:
+  using: composite
+  steps:
+    - id: py
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    # The whole virtualenv is cached, so most runs skip pip entirely.
+    - id: venv
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.py.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
+
+    - if: steps.venv.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python -m venv .venv
+        .venv/bin/pip install --quiet --upgrade pip
+        .venv/bin/pip install --quiet torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+        .venv/bin/pip install --quiet -r requirements.txt
+
+    # Kronos model + tokenizer weights from Hugging Face (~100 MB, free, no key).
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/huggingface
+        key: hf-kronos-v1-${{ hashFiles('config/*.json') }}
+        restore-keys: hf-kronos-v1-
+
+    # Candle history (not committed). A new key every run so updates are saved;
+    # restore-keys picks up the most recent copy.
+    - if: inputs.candles == 'true'
+      uses: actions/cache@v4
+      with:
+        path: data/candles
+        key: candles-${{ inputs.scope }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+        restore-keys: candles-${{ inputs.scope }}-
+
+    - shell: bash
+      run: |
+        echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        git config user.name "candle-lab-bot"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

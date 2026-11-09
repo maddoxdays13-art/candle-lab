@@ -1,0 +1,125 @@
+name: Daily experiment
+
+# Champion vs challengers, once a day overnight (US time). Split into small jobs:
+# plan -> tuning (3 coins in parallel) -> gate -> holdout (only if something passed) -> decide.
+on:
+  schedule:
+    - cron: "17 7 * * *"   # 07:17 UTC = 2:17 / 3:17 am US Eastern
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Experiment date (YYYY-MM-DD). Blank = today (UTC)."
+        default: ""
+      quick:
+        description: "Smoke test: points per coin (blank = full size from config/experiment.json)"
+        default: ""
+
+concurrency:
+  group: experiment
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      date: ${{ steps.d.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - id: d
+        run: |
+          d="${{ inputs.date }}"
+          echo "date=${d:-$(date -u +%F)}" >> "$GITHUB_OUTPUT"
+      - run: python -m candlelab.experiment plan --date ${{ steps.d.outputs.date }} ${{ inputs.quick && format('--quick {0}', inputs.quick) || '' }}
+      - uses: actions/upload-artifact@v4
+        with: { name: plan, path: "work/experiments/${{ steps.d.outputs.date }}/plan.json" }
+
+  tuning:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        coin: [BTC-USD, ETH-USD, SOL-USD]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with: { candles: "true", scope: "${{ matrix.coin }}" }
+      - uses: actions/cache@v4   # Kronos forecasts from earlier days (re-used, never recomputed)
+        with:
+          path: work/cache/${{ matrix.coin }}
+          key: forecasts-${{ matrix.coin }}-${{ github.run_id }}-tuning
+          restore-keys: forecasts-${{ matrix.coin }}-
+      - uses: actions/download-artifact@v4
+        with: { name: plan, path: "work/experiments/${{ needs.plan.outputs.date }}" }
+      - run: python -m candlelab.experiment eval --split tuning --coin ${{ matrix.coin }} --date ${{ needs.plan.outputs.date }}
+      - uses: actions/upload-artifact@v4
+        with: { name: "tuning-${{ matrix.coin }}", path: "work/experiments/${{ needs.plan.outputs.date }}/tuning-${{ matrix.coin }}.json" }
+
+  gate:
+    needs: [plan, tuning]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      passed: ${{ steps.g.outputs.passed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with: { path: "work/experiments/${{ needs.plan.outputs.date }}", merge-multiple: true }
+      - id: g
+        run: |
+          python -m candlelab.experiment gate --date ${{ needs.plan.outputs.date }}
+          n=$(python -c "import json;print(len(json.load(open('work/experiments/${{ needs.plan.outputs.date }}/gate.json'))['passed_tuning']))")
+          echo "passed=$n" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: { name: gate, path: "work/experiments/${{ needs.plan.outputs.date }}/gate.json" }
+
+  holdout:
+    needs: [plan, gate]
+    if: needs.gate.outputs.passed != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        coin: [BTC-USD, ETH-USD, SOL-USD]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with: { candles: "true", scope: "${{ matrix.coin }}" }
+      - uses: actions/cache@v4
+        with:
+          path: work/cache/${{ matrix.coin }}
+          key: forecasts-${{ matrix.coin }}-${{ github.run_id }}-holdout
+          restore-keys: forecasts-${{ matrix.coin }}-
+      - uses: actions/download-artifact@v4
+        with: { name: plan, path: "work/experiments/${{ needs.plan.outputs.date }}" }
+      - uses: actions/download-artifact@v4
+        with: { name: gate, path: "work/experiments/${{ needs.plan.outputs.date }}" }
+      - run: python -m candlelab.experiment eval --split holdout --coin ${{ matrix.coin }} --date ${{ needs.plan.outputs.date }}
+      - uses: actions/upload-artifact@v4
+        with: { name: "holdout-${{ matrix.coin }}", path: "work/experiments/${{ needs.plan.outputs.date }}/holdout-${{ matrix.coin }}.json" }
+
+  decide:
+    needs: [plan, gate, holdout]
+    if: always() && needs.gate.result == 'success' && (needs.holdout.result == 'success' || needs.holdout.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: git pull -q --rebase origin "${{ github.ref_name }}"   # latest live results for the probation check
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with: { path: "work/experiments/${{ needs.plan.outputs.date }}", merge-multiple: true }
+      - run: python -m candlelab.experiment decide --date ${{ needs.plan.outputs.date }}
+      - run: |
+          scripts/commit_and_push.sh "experiment: ${{ needs.plan.outputs.date }}" config/champion.json results/experiments docs/data/experiments.json

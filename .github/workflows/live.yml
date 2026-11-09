@@ -1,0 +1,32 @@
+name: Live logger
+
+on:
+  schedule:
+    # Every 15 minutes, a few minutes after each candle closes.
+    # GitHub sometimes runs these late or skips one; the logger handles that.
+    - cron: "3,18,33,48 * * * *"
+  workflow_dispatch:
+
+# Never two at once. A queued run waits for the current one instead of overlapping.
+concurrency:
+  group: live-logger
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Score past predictions and predict the current candle
+        run: python -m candlelab.live
+      - name: Commit results
+        run: |
+          scripts/commit_and_push.sh "live: $(date -u +'%Y-%m-%d %H:%M') UTC" results/live docs/data/live.json

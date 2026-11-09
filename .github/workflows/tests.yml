@@ -1,0 +1,19 @@
+name: Tests
+
+on:
+  push:
+    paths: ["candlelab/**", "tests/**", "vendor/**", "requirements.txt"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: python -m pytest -q

@@ -1,0 +1,94 @@
+name: Backtest
+
+# Manual. Each run works for up to `max_minutes` per coin (3 coins in parallel),
+# commits what it finished, and re-launches itself until it reaches the present.
+on:
+  workflow_dispatch:
+    inputs:
+      max_minutes:
+        description: "Minutes of work per coin per run (keep under ~330; GitHub's job limit is 360)"
+        default: "300"
+      reset:
+        description: "Delete saved backtest results first (needed after editing config/backtest.json)"
+        type: boolean
+        default: false
+      chain:
+        description: "Automatically start the next chunk until finished"
+        type: boolean
+        default: true
+
+concurrency:
+  group: backtest
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write   # lets the workflow start its own next chunk
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: python -m candlelab.backtest --prepare-only ${{ inputs.reset && '--reset' || '' }}
+      - run: |
+          scripts/commit_and_push.sh "backtest: prepare" results/backtest
+
+  run:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        coin: [BTC-USD, ETH-USD, SOL-USD]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - run: git pull -q --rebase origin "${{ github.ref_name }}"
+      - uses: ./.github/actions/setup
+        with: { candles: "true", scope: "${{ matrix.coin }}" }
+      - name: Backtest ${{ matrix.coin }}
+        run: python -m candlelab.backtest --coin ${{ matrix.coin }} --max-minutes ${{ inputs.max_minutes || 300 }} --no-site
+      - name: Commit results
+        if: always()
+        run: |
+          scripts/commit_and_push.sh "backtest: ${{ matrix.coin }} chunk" "results/backtest/${{ matrix.coin }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: status-${{ matrix.coin }}
+          path: results/backtest/status-${{ matrix.coin }}.txt
+
+  finish:
+    needs: [prepare, run]
+    if: always() && needs.prepare.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: git pull -q --rebase origin "${{ github.ref_name }}"
+      - uses: ./.github/actions/setup
+      - run: python -m candlelab.site --only backtest
+      - run: |
+          scripts/commit_and_push.sh "backtest: dashboard data" docs/data/backtest.json
+      - uses: actions/download-artifact@v4
+        with: { pattern: status-*, path: status, merge-multiple: true }
+      - name: Start the next chunk if any coin is unfinished
+        if: inputs.chain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat status/*.txt || true
+          # Only chains when a coin ran out of time; a crash stops the chain so it can't loop.
+          if grep -q incomplete status/*.txt 2>/dev/null; then
+            echo "Not finished yet - starting the next chunk."
+            gh workflow run backtest.yml --ref "${{ github.ref_name }}" -f max_minutes="${{ inputs.max_minutes || 300 }}" -f chain=true
+          else
+            echo "Backtest is up to date."
+          fi
