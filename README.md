@@ -13,7 +13,7 @@ and SOL better than simple baselines.
 
 | What runs | When | Where the results go |
 |---|---|---|
-| **Live logger**: predicts the candle forming right now and scores the ones that closed | every 15 min | `results/live/` |
+| **Live keeper**: predicts the candle forming right now and scores the ones that closed | every 15 min | `results/live/` |
 | **Backtest**: walk-forward replay of history since July 2024 | when you start it | `results/backtest/` |
 | **Daily experiment**: champion vs 3–5 challenger settings | every night | `results/experiments/`, `config/champion.json` |
 | **Dashboard** | always on | `docs/` → `https://<you>.github.io/<repo>/` |
@@ -52,10 +52,13 @@ and SOL better than simple baselines.
    cached, so later runs take about 40 seconds.
 3. After that it runs by itself every 15 minutes. The first predictions are scored 15 minutes later.
 
-> GitHub's scheduler is "best effort": runs are sometimes 5–30 minutes late, and occasionally one is skipped.
-> That's fine. The logger never logs the same candle twice, never predicts a candle that has already closed,
-> and scores any earlier predictions it finds unscored. The dashboard shows a warning banner if nothing has
-> updated for over an hour.
+> GitHub's own scheduler is "best effort": on new repos it can stay silent for hours, and later it's often late.
+> So the logging is done by the **Live keeper** workflow, which runs the logger 75 seconds after every 15-minute
+> candle closes, restarts itself every ~5¾ hours, and also starts the nightly experiment. The "Live logger"
+> schedule is only a watchdog that restarts the keeper if it ever stops. To pause logging, cancel the running
+> "Live keeper" run in the Actions tab (it won't restart itself when cancelled; the watchdog will restart it at
+> its next run unless you also disable "Live logger"). The logger never logs the same candle twice and never
+> predicts a candle that has already closed. The dashboard shows a warning banner if nothing has updated for over an hour.
 
 ### 5. Run the first backtest
 1. **Actions → Backtest → Run workflow**. Leave the defaults and click **Run workflow**.
@@ -81,6 +84,12 @@ workflow**. Type `100` in the *quick* box for a fast smoke test (about 10 minute
   * **Momentum**: same direction as the last candle.
   * **Coin flip**: a fair random call (reproducible).
   * **Always up**: says "up" every time. It does well in bull markets, so it's a useful reality check.
+* **Is Kronos's confidence honest?** Groups Kronos's calls by how many of its samples agreed (60%, 70%, 80%, …)
+  and shows how often each group was actually right. Dots on the dashed line = honest; below = overconfident.
+  The same numbers are saved as plain data files: `results/backtest/calibration.csv` and `results/live/calibration.csv`.
+* **Live candles** (Live tab): zoomable candlestick charts straight from Coinbase (LIVE 1-second, 1m, 5m, 15m, 1h)
+  with Kronos's calls marked, and an Up/Down chances bar for the candle forming now.
+* **Candlesticks tab**: a cheat sheet of 42 candlestick patterns, drawn, with what each one means.
 * **Paper P&L**: buy when the call is "up", hold cash otherwise, and pay **0.1% on every buy and every sell**.
   Compared against simply holding the coin. Fees matter a lot at 15-minute frequency, because a strategy that
   flips often pays them dozens of times a day.

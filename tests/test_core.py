@@ -185,3 +185,12 @@ def test_probation(monkeypatch, now, champ, prev, expect):
         assert st["champion"]["id"] == "old" and st["probation"] is None
     if expect == "probation_passed":
         assert st["champion"]["id"] == "new" and st["probation"] is None
+
+
+def test_calibration():
+    df = pd.DataFrame({"conf": [0.6] * 100 + [0.9] * 100, "direction": [1] * 200,
+                       "actual_dir": [1] * 60 + [-1] * 40 + [1] * 60 + [-1] * 40})
+    rows = {r["bin"]: r for r in stats.calibration(df)}
+    assert rows["60-70%"]["actual"] == pytest.approx(0.6) and rows["60-70%"]["verdict"] == "honest"
+    assert rows["90-100%"]["actual"] == pytest.approx(0.6) and rows["90-100%"]["verdict"] == "overconfident"
+    assert rows["50-60%"]["calls"] == 0 and rows["50-60%"]["verdict"] is None

@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from .config import (BACKTEST_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
+from .config import (BACKTEST_DIR, LIVE_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
                      load_champion_state, load_json, save_json)
-from .stats import clean_nans, compare, rolling_series, summarize
+from .stats import calibration, clean_nans, compare, rolling_series, summarize
 
 MODELS = ["kronos", "momentum", "coin_flip", "always_up"]
 DIR_NUM = {"up": 1, "down": -1, "skip": 0}
@@ -34,8 +34,17 @@ def section(long_df, window):
                 models[m] = {"summary": summarize(sub), "rolling": rolling_series(sub, window)}
         vs = {b: compare(models["kronos"]["summary"], models[b]["summary"])
               for b in MODELS if b != "kronos"}
-        out[coin] = {"models": models, "kronos_vs": vs}
+        cal = calibration(g[g["model"] == "kronos"]) if "conf" in g else []
+        out[coin] = {"models": models, "kronos_vs": vs, "calibration": cal}
     return out
+
+
+def write_calibration_csv(sec, path):
+    """The calibration numbers as a plain CSV data file (one row per coin x confidence bin)."""
+    rows = [{"coin": coin, **{k: r[k] for k in ["bin", "stated", "calls", "hits", "actual", "ci_low", "ci_high", "verdict"]}}
+            for coin, d in sec.items() for r in d["calibration"]]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).round(4).to_csv(path, index=False)
 
 
 def build_live():
@@ -48,6 +57,7 @@ def build_live():
         "actual_dir": np.where(scored["actual_close"] > scored["last_close"], 1, -1),
         "ret": scored["actual_close"] / scored["last_close"] - 1,
         "pct_error": scored["pct_error"],
+        "conf": scored["confidence"].where(scored["model"] == "kronos"),
     })
     # Recent table: one row per (coin, candle) with every model's call side by side.
     recent = []
@@ -87,6 +97,7 @@ def build_live():
         "coins": section(long_df, window=96),
         "recent": recent,
     }
+    write_calibration_csv(out["coins"], LIVE_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "live.json", clean_nans(out))
 
 
@@ -103,9 +114,10 @@ def build_backtest():
                 "coin": coin, "model": m, "ts": bt["ts"].astype(int), "direction": bt[m].astype(int),
                 "actual_dir": actual, "ret": bt["close"] / bt["last_close"] - 1,
                 "pct_error": (bt["pred_close"] - bt["close"]) / bt["close"] * 100 if m == "kronos" else np.nan,
+                "conf": bt["kronos_conf"] if m == "kronos" else np.nan,
             }))
     long_df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(
-        columns=["coin", "model", "ts", "direction", "actual_dir", "ret", "pct_error"])
+        columns=["coin", "model", "ts", "direction", "actual_dir", "ret", "pct_error", "conf"])
     meta = load_json(BACKTEST_DIR / "meta.json", {})
     out = {
         "updated_at": _now(), "meta": meta,
@@ -113,6 +125,7 @@ def build_backtest():
                   "last": int(long_df["ts"].max()) if len(long_df) else None},
         "coins": section(long_df, window=960),
     }
+    write_calibration_csv(out["coins"], BACKTEST_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "backtest.json", clean_nans(out))
 
 

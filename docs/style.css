@@ -213,3 +213,31 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
 .osub b { color: var(--text); }
 @media (max-width: 760px) { .pchart { height: 280px; } .pgrid.one .pchart { height: 340px; } .pbig { font-size: 26px; } .pgrid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .livechip[aria-pressed="true"] .dotlive { animation: none; } .obar > div { transition: none; } }
+.osub.honesty { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+
+/* ---------- candlestick cheat sheet ---------- */
+.cheat-intro { display: grid; grid-template-columns: minmax(260px, 1.1fr) 1fr; gap: 18px; align-items: center; margin-top: 16px; }
+.cheat-intro h3, .cheat-warn h3 { margin: 0 0 8px; font: 800 15px "Barlow", sans-serif; text-transform: uppercase; letter-spacing: .4px; }
+.cheat-intro p, .cheat-warn p { margin: 0 0 8px; color: var(--text-2); font-size: 14px; }
+.cheat-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 18px 0 4px; }
+.cheat-search { flex: 1 1 240px; max-width: 360px; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 999px;
+  padding: 8px 16px; font: 15px "Barlow", sans-serif; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); }
+.cheat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.ccard { --kc: var(--muted); position: relative; overflow: hidden; background: linear-gradient(180deg, color-mix(in srgb, var(--kc) 9%, var(--panel)), var(--panel) 55%);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--lift); transition: transform .12s ease, box-shadow .15s ease; }
+.ccard:hover { transform: translateY(-2px); box-shadow: var(--lift-hover); }
+.ccard::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--kc), transparent); }
+.ccard.k-bull { --kc: var(--good); } .ccard.k-bear { --kc: var(--bad); } .ccard.k-neutral { --kc: #C9CBD0; } .ccard.k-cont { --kc: var(--s-kronos); }
+.ccard-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; }
+.ktag { flex: none; font: 800 10.5px "Barlow", sans-serif; letter-spacing: .5px; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; color: var(--kc);
+  background: color-mix(in srgb, var(--kc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--kc) 45%, transparent); }
+.ktag.k-bull { --kc: var(--good); } .ktag.k-bear { --kc: var(--bad); } .ktag.k-neutral { --kc: #C9CBD0; } .ktag.k-cont { --kc: var(--s-kronos); }
+.cfig { display: flex; justify-content: center; align-items: center; margin: 10px 0 4px; padding: 6px; border-radius: 8px; background: var(--bar);
+  box-shadow: inset 0 1px 4px rgba(0,0,0,.6); overflow-x: auto; }
+.cfig svg { max-width: 100%; height: auto; }
+.cctx { text-align: center; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .3px; margin-bottom: 4px; }
+.cmeans, .cread { margin: 6px 0 0; font-size: 13.5px; color: var(--text-2); line-height: 1.45; }
+.cmeans b, .cread b { color: var(--text); }
+.cheat-warn { margin-top: 18px; border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.cheat-warn::before { background: linear-gradient(90deg, var(--warn), transparent); }
+@media (max-width: 760px) { .cheat-intro { grid-template-columns: 1fr; } .cheat-search { max-width: none; } }

@@ -128,6 +128,7 @@ function performanceSection(d, kind) {
   html += `<p class="note">Edge = Kronos hit rate minus the baseline's, in percentage points. "Beats it" needs a one-sided p-value under 0.05; anything else could be luck.</p>`;
   html += `<h2>Scoreboard</h2>${scoreboard(coinData, pooled)}`;
   html += `<p class="note">Paper P&amp;L: buy when the call is "up", sit in cash otherwise, 0.1% fee on every buy and sell. Hold coin = buy once and hold over the same candles.</p>`;
+  html += calibrationSection(coinData, kind);
   if (pooled) {
     html += `<p class="note">Pick a coin above to see charts and P&amp;L.</p>`;
   } else {
@@ -137,7 +138,74 @@ function performanceSection(d, kind) {
   return html;
 }
 
+/* ---------- Is Kronos's confidence honest? (calibration) ---------- */
+function calibrationSection(coinData, kind) {
+  const rows = coinData.calibration || [];
+  const total = rows.reduce((a, r) => a + r.calls, 0);
+  const csv = kind === "live" ? "results/live/calibration.csv" : "results/backtest/calibration.csv";
+  const repo = "https://github.com/maddoxdays13-art/candle-lab/blob/main/" + csv;
+  const tag = (r) => !r.verdict ? `<span class="verdict meh" style="margin:0">TOO FEW CALLS</span>`
+    : r.verdict === "honest" ? `<span class="verdict yes" style="margin:0">✓ HONEST</span>`
+    : r.verdict === "overconfident" ? `<span class="verdict no" style="margin:0">OVERCONFIDENT</span>`
+    : `<span class="verdict luck" style="margin:0">BETTER THAN IT SAYS</span>`;
+  return `<h2>Is Kronos's confidence honest?</h2>
+    <div class="grid2"><div class="chartbox"><canvas id="calChart"></canvas></div>
+    <div class="tablewrap"><table><thead><tr><th>When Kronos says</th><th>It was right</th><th>95% range</th><th>Calls</th><th>Verdict</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr><td><b>${r.bin}</b> <span class="muted">(avg ${pct(r.stated, 0)})</span></td>
+      <td><b class="${r.actual == null ? "" : r.actual >= r.stated - 0.02 ? "pos" : "neg"}">${pct(r.actual)}</b></td>
+      <td>${pct(r.ci_low)} – ${pct(r.ci_high)}</td><td>${num(r.calls)}</td><td>${tag(r)}</td></tr>`).join("")}
+    </tbody></table></div></div>
+    <p class="note">"Kronos says 80%" means 8 of its 10 sampled futures agreed on the direction. If that number were an honest probability, the dots would sit on the dashed line.
+    Below the line = overconfident; above = better than it claims. ${num(total)} calls ${state.coin === "ALL" ? "across all coins" : "on " + state.coin.replace("-USD", "")}.
+    Data file: <a href="${repo}">${csv}</a>.</p>`;
+}
+
+function drawCalibration(coinData) {
+  const el = $("#calChart");
+  if (!el) return;
+  const rows = (coinData.calibration || []).filter((r) => r.calls > 0);
+  const errBars = {
+    id: "errbars",
+    afterDatasetsDraw(chart) {
+      const { ctx, scales: { x, y } } = chart;
+      ctx.save(); ctx.strokeStyle = css("--s-kronos"); ctx.lineWidth = 2;
+      rows.forEach((r) => {
+        if (r.ci_low == null) return;
+        const px = x.getPixelForValue(r.stated * 100);
+        ctx.beginPath(); ctx.moveTo(px, y.getPixelForValue(r.ci_low * 100)); ctx.lineTo(px, y.getPixelForValue(r.ci_high * 100));
+        ctx.moveTo(px - 5, y.getPixelForValue(r.ci_low * 100)); ctx.lineTo(px + 5, y.getPixelForValue(r.ci_low * 100));
+        ctx.moveTo(px - 5, y.getPixelForValue(r.ci_high * 100)); ctx.lineTo(px + 5, y.getPixelForValue(r.ci_high * 100));
+        ctx.stroke();
+      });
+      ctx.restore();
+    },
+  };
+  const ch = new Chart(el, {
+    type: "scatter",
+    data: { datasets: [
+      { label: "Perfectly honest", data: [{ x: 50, y: 50 }, { x: 100, y: 100 }], showLine: true, borderColor: "#5c5f66", borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0 },
+      { label: "Kronos actually right", data: rows.map((r) => ({ x: r.stated * 100, y: r.actual * 100, r })), showLine: true,
+        borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), borderWidth: 2,
+        pointRadius: rows.map((r) => Math.max(4, Math.min(11, 3 + Math.log10(r.calls + 1) * 2))), pointHoverRadius: 9 },
+    ] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      scales: {
+        x: { min: 50, max: 100, title: { display: true, text: "Kronos's stated confidence" }, ticks: { callback: (v) => v + "%" }, grid: { display: false } },
+        y: { min: 30, max: 100, title: { display: true, text: "Actually right" }, ticks: { callback: (v) => v + "%" }, grid: { color: "#222428" } },
+      },
+      plugins: {
+        legend: { labels: { boxWidth: 10, boxHeight: 10 } },
+        tooltip: { callbacks: { label: (it) => it.raw.r ? `Says ${it.raw.r.bin}: right ${pct(it.raw.r.actual)} of ${num(it.raw.r.calls)} calls` : "Perfectly honest" } },
+      },
+    },
+    plugins: [errBars],
+  });
+  state.charts.push(ch);
+}
+
 function drawPerformanceCharts(d) {
+  drawCalibration(d.coins[state.coin]);
   if (state.coin === "ALL") return;
   const cd = d.coins[state.coin].models;
   const pts = cd.kronos.rolling;
@@ -186,6 +254,7 @@ const HEADS = {
   live: ["Live", "Predicting the 15-minute candle forming right now, scored when it closes"],
   backtest: ["Backtest", "Walk-forward replay of history the model never trained on"],
   experiments: ["Experiments", "Champion vs challengers, tested every night"],
+  candlesticks: ["Candlesticks", "A cheat sheet: what every common candlestick pattern looks like and what traders read into it"],
 };
 const pageHead = (t) => `<div class="page-head"><h1>${HEADS[t][0]}</h1><p>${HEADS[t][1]}</p></div>`;
 
@@ -297,11 +366,12 @@ async function render() {
   destroyCharts();
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === state.tab));
   const main = $("#main");
-  const d = await load(state.tab);
+  const d = state.tab === "candlesticks" ? null : await load(state.tab);
   try {
     if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) { drawPerformanceCharts(d); startPrices(); } }
     if (state.tab === "backtest") { main.innerHTML = pageHead("backtest") + renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
     if (state.tab === "experiments") { main.innerHTML = pageHead("experiments") + renderExperiments(d); drawExperimentChart(d); }
+    if (state.tab === "candlesticks") { main.innerHTML = pageHead("candlesticks") + renderCandles(); bindCandles(); }
   } catch (e) {
     console.error(e);
     main.innerHTML = `<p class="pad muted">Could not render this tab: ${esc(e.message)}</p>`;
@@ -454,7 +524,17 @@ function renderOdds(coin) {
       <div class="odown${up < 0.5 ? " lead" : ""}" style="width:${Math.max((1 - up) * 100, 14)}%">${Math.round((1 - up) * 100)}% DOWN ▼</div></div>
     <div class="osub">Kronos ${m.dir === "skip" ? "is too unsure to call it" : "calls <b>" + m.dir.toUpperCase() + "</b>"}${m.pred != null ? ` · expects close <b>$${fmtPrice(m.pred)}</b>` : ""}
       ${move != null ? ` · since the call: <span class="${move >= 0 ? "pos" : "neg"}">${move >= 0 ? "▲" : "▼"} ${signed(move, Math.abs(move) < 0.1 ? 3 : 2)}</span> ${onTrack}` : ""}</div>
-    <div class="osub">${rec}</div>`;
+    <div class="osub">${rec}</div>${honesty(coin, m)}`;
+}
+
+// "When Kronos has said this much before, it was right X%": from the backtest's calibration.
+function honesty(coin, m) {
+  if (m.dir === "skip") return "";
+  const rows = state.data.backtest?.coins?.[coin]?.calibration || [];
+  const r = rows.find((x) => m.conf >= x.lo && (m.conf < x.hi || x.hi >= 1));
+  if (!r || r.calls < 30) return "";
+  return `<div class="osub honesty">Reality check: in the backtest, when Kronos said <b>${r.bin}</b> it was right
+    <b class="${r.actual >= r.stated - 0.02 ? "pos" : "neg"}">${pct(r.actual)}</b> of the time (${num(r.calls)} calls).</div>`;
 }
 
 function kronosOverlay(coin) {
@@ -544,6 +624,7 @@ function stopPrices() {
 }
 
 async function startPrices() {
+  load("backtest");  // for the Up/Down "reality check" line
   const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
   const all = async (fn) => Promise.all(coins.map((c) => fn(c).catch((e) => console.warn(c, e))));
   const info = (t) => { const el = $("#rangeinfo"); if (el) el.textContent = t; };
@@ -596,7 +677,7 @@ async function fetchFresh(name) {
 }
 setInterval(async () => {
   try {
-    const names = [...new Set(["live", state.tab])];
+    const names = [...new Set(["live", state.tab])].filter((n) => n !== "candlesticks");
     const fresh = await Promise.all(names.map(fetchFresh));
     let changed = false;
     names.forEach((n, i) => {

@@ -104,6 +104,30 @@ def rolling_series(df, window, max_points=300):
              "hold": round(float(hold[i] - 1) * 100, 3)} for i in idx]
 
 
+CAL_BINS = [(0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0001)]
+
+
+def calibration(df):
+    """Is Kronos's confidence honest? Groups calls by stated confidence (share of
+    samples agreeing) and compares with how often those calls were right.
+    df needs conf, direction, actual_dir. Skipped candles are left out."""
+    called = df[(df["direction"] != 0) & df["conf"].notna()]
+    rows = []
+    for lo, hi in CAL_BINS:
+        g = called[(called["conf"] >= lo) & (called["conf"] < hi)]
+        n = len(g)
+        hits = int((g["direction"] == g["actual_dir"]).sum())
+        stated = float(g["conf"].mean()) if n else (lo + min(hi, 1.0)) / 2
+        ci_lo, ci_hi = wilson(hits, n)
+        verdict = None
+        if n >= 30:
+            verdict = "overconfident" if stated > ci_hi else "underconfident" if stated < ci_lo else "honest"
+        rows.append({"bin": f"{round(lo * 100)}-{round(min(hi, 1.0) * 100)}%", "lo": lo, "hi": min(hi, 1.0),
+                     "stated": stated, "calls": n, "hits": hits, "actual": hits / n if n else None,
+                     "ci_low": ci_lo, "ci_high": ci_hi, "verdict": verdict})
+    return rows
+
+
 def compare(a, b):
     """Kronos (a) vs baseline (b) summaries -> edge in percentage points and p-value."""
     if not a["calls"] or not b["calls"]:
