@@ -90,6 +90,17 @@ workflow**. Type `100` in the *quick* box for a fast smoke test (about 10 minute
 * **Live candles** (Live tab): zoomable candlestick charts straight from Coinbase (LIVE 1-second, 1m, 5m, 15m, 1h)
   with Kronos's calls marked, and an Up/Down chances bar for the candle forming now.
 * **Candlesticks tab**: a cheat sheet of 42 candlestick patterns, drawn, with what each one means.
+* **Which coin is Kronos best at?** BTC, ETH and SOL side by side, with a chi-square test of whether the
+  difference between coins is real or luck.
+* **Bets tab**: 15-minute "up or down" prediction markets (Kalshi, Robinhood, Polymarket). (1) Paper $1 bets on every
+  call at even odds with each venue's fees. (2) **Kronos vs the Kalshi crowd**: every 15 minutes the logger also saves
+  Kalshi's public market prices for the same window (read-only, no account) and later its official result
+  (`results/live/kalshi-*.csv`), then compares accuracy, Brier score, and the P&L of betting Kronos's calls at the
+  real prices.
+* **Practice wallet** (corner button): claim a free $100 of fake money once a day and practice buying Up/Down
+  contracts on the current 15-minute window, or selling early. Prices come from a simulated market built on Coinbase's
+  live price (Kalshi doesn't allow browsers to read its prices directly), with Kalshi-style spread and fees, and bets
+  settle on Coinbase's 15-minute candle. Saved only in your browser.
 * **Paper P&L**: buy when the call is "up", hold cash otherwise, and pay **0.1% on every buy and every sell**.
   Compared against simply holding the coin. Fees matter a lot at 15-minute frequency, because a strategy that
   flips often pays them dozens of times a day.

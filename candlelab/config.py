@@ -15,6 +15,14 @@ FEE_PRESETS = {
     "cb_taker": 0.009,   # Coinbase Advanced, entry tier, order that fills right away ("taker")
     "robinhood": 0.0095, # Robinhood app: ~$0.95 per $100, built into the spread
 }
+# Prediction-market venues for 15-minute "up or down" bets (fee per $1-payout contract at price q).
+# Checked Nov 2026 from public reporting; Polymarket's exact US fee is unconfirmed.
+BET_VENUES = {
+    "kalshi_taker": "Kalshi, instant fill: 0.07 x q x (1-q)  (~1.75c at 50c)",
+    "kalshi_maker": "Kalshi, limit order: 0.0175 x q x (1-q)  (~0.44c at 50c)",
+    "robinhood": "Robinhood Prediction Markets: ~2c per contract",
+    "polymarket": "Polymarket 15-min crypto: reported up to ~3% of stake at 50/50",
+}
 
 CANDLE_DIR = ROOT / "data" / "candles"          # not committed; cached in Actions
 LIVE_DIR = ROOT / "results" / "live"

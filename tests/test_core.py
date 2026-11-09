@@ -203,3 +203,28 @@ def test_pnl_by_fee():
     assert s["pnl_by_fee"]["best"] > s["pnl_by_fee"]["cb_maker"] > s["pnl_by_fee"]["robinhood"]
     assert s["pnl_by_fee"]["best"] == pytest.approx(s["pnl_pct"])
     assert s["pnl_by_fee"]["robinhood"] < 0  # 4 trades x 0.95% wipes out +0.4%
+
+
+def test_kalshi_section(monkeypatch):
+    from candlelab import kalshi, site
+    k = pd.DataFrame({"coin": ["BTC-USD", "BTC-USD", "ETH-USD"], "candle_ts": [900, 1800, 900], "ticker": ["a", "b", "c"],
+                      "logged_at": [""] * 3, "secs_into_window": [75] * 3,
+                      "yes_bid": [0.53, 0.40, 0.49], "yes_ask": [0.55, 0.42, 0.51], "no_bid": [0.45, 0.58, 0.49],
+                      "no_ask": [0.47, 0.60, 0.51], "last": [0.54, 0.41, 0.5], "strike": [1, 1, 1],
+                      "result": ["yes", "yes", "no"], "final_value": [1, 1, 1]})
+    monkeypatch.setattr(kalshi, "load", lambda: k)
+    pred = pd.DataFrame({"model": ["kronos"] * 3, "coin": ["BTC-USD", "BTC-USD", "ETH-USD"], "candle_ts": [900, 1800, 900],
+                         "direction": ["up", "down", "skip"], "confidence": [0.8, 0.7, 0.5], "pred_close": [1, 1, 1]})
+    out = site.kalshi_section(pred)
+    b = out["coins"]["BTC-USD"]
+    assert b["kronos_calls"] == 2 and b["kronos_hits"] == 1
+    # won window 1 buying Yes at 0.55; lost window 2 buying No at 0.60; Kalshi taker fees on both
+    expect = (1 - 0.55 - 0.07 * 0.55 * 0.45) + (0 - 0.60 - 0.07 * 0.60 * 0.40)
+    assert b["follow"]["kalshi_taker"] == pytest.approx(expect)
+    assert out["coins"]["ETH-USD"]["kronos_calls"] == 0  # skipped
+    assert out["coins"]["ALL"]["crowd_hit"] == pytest.approx(0.5)  # favored Yes (right), No (wrong); 50/50 tie left out
+
+
+def test_coins_differ():
+    assert stats.coins_differ({"a": (500, 1000), "b": (505, 1000)}) > 0.5
+    assert stats.coins_differ({"a": (500, 1000), "b": (600, 1000), "c": (510, 1000)}) < 0.001

@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from .config import FEE, FEE_PRESETS
+from .config import BET_VENUES, FEE, FEE_PRESETS
 
 
 def wilson(hits, n, z=1.96):
@@ -57,6 +57,31 @@ def paper_pnl(direction, ret, fee=FEE):
     return strat, hold, int(trades.sum())
 
 
+def bet_fee(venue, q):
+    """Fee per $1-payout contract bought at price q (dollars)."""
+    q = np.asarray(q, float)
+    return {"kalshi_taker": 0.07 * q * (1 - q), "kalshi_maker": 0.0175 * q * (1 - q),
+            "robinhood": np.full_like(q, 0.02), "polymarket": 0.12 * q * q * (1 - q)}[venue]
+
+
+def bet_pnl(won, price, venue):
+    """Dollars won or lost per contract: $1 if right, minus what it cost, minus the fee."""
+    won = np.asarray(won, float)
+    return won - np.asarray(price, float) - bet_fee(venue, price)
+
+
+def even_odds_bets(called_df):
+    """Paper bets: one $1 contract on every call at an even 50c price."""
+    won = (called_df["direction"] == called_df["actual_dir"]).to_numpy()
+    out = {}
+    for v in BET_VENUES:
+        pnl = bet_pnl(won, np.full(len(won), 0.5), v)
+        stake = 0.5 + float(bet_fee(v, 0.5))
+        out[v] = {"pnl": float(pnl.sum()), "roi": float(pnl.sum() / (stake * len(won))) if len(won) else None,
+                  "breakeven": stake}
+    return out
+
+
 def summarize(df):
     """Summary for one coin+model. df needs ts, direction, actual_dir, ret,
     pct_error (rows already scored), sorted by ts."""
@@ -85,6 +110,7 @@ def summarize(df):
         "trades": trades,
         "pnl_by_fee": by_fee,
         "hold_by_fee": hold_by_fee,
+        "bets": even_odds_bets(called),
     }
 
 
@@ -101,6 +127,8 @@ def rolling_series(df, window, max_points=300):
     rate = (roll_hits / roll_calls.where(roll_calls >= max(10, window // 4))).to_numpy()
     d, r = df["direction"].to_numpy(), df["ret"].to_numpy()
     curves = {k: paper_pnl(d, r, fee=f) for k, f in FEE_PRESETS.items()}
+    won = (df["direction"] == df["actual_dir"]).to_numpy() & called.to_numpy()
+    betcum = {v: np.cumsum(np.where(called.to_numpy(), bet_pnl(won, np.full(len(df), 0.5), v), 0.0)) for v in BET_VENUES}
     strat, hold = curves["best"][0], curves["best"][1]
     step = max(1, len(df) // max_points)
     idx = list(range(0, len(df), step))
@@ -112,7 +140,8 @@ def rolling_series(df, window, max_points=300):
              "pnl": round(float(strat[i] - 1) * 100, 3),
              "hold": round(float(hold[i] - 1) * 100, 3),
              "pnl_f": {k: round(float(c[0][i] - 1) * 100, 3) for k, c in curves.items()},
-             "hold_f": {k: round(float(c[1][i] - 1) * 100, 3) for k, c in curves.items()}} for i in idx]
+             "hold_f": {k: round(float(c[1][i] - 1) * 100, 3) for k, c in curves.items()},
+             "bet_f": {v: round(float(b[i]), 2) for v, b in betcum.items()}} for i in idx]
 
 
 CAL_BINS = [(0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0001)]
@@ -137,6 +166,25 @@ def calibration(df):
                      "stated": stated, "calls": n, "hits": hits, "actual": hits / n if n else None,
                      "ci_low": ci_lo, "ci_high": ci_hi, "verdict": verdict})
     return rows
+
+
+def coins_differ(per_coin):
+    """Chi-square test: do the coins' hit rates differ by more than luck? per_coin: {coin: (hits, calls)}.
+    Returns the p-value (small = a real difference between coins)."""
+    items = [(h, n) for h, n in per_coin.values() if n > 0]
+    if len(items) < 2:
+        return None
+    H = sum(h for h, _ in items); N = sum(n for _, n in items); p = H / N
+    if p in (0, 1):
+        return 1.0
+    chi2 = sum((h - n * p) ** 2 / (n * p * (1 - p)) for h, n in items)
+    k = len(items) - 1
+    # chi-square tail probability; closed forms for 1 and 2 degrees of freedom
+    if k == 1:
+        return math.erfc(math.sqrt(chi2 / 2))
+    if k == 2:
+        return math.exp(-chi2 / 2)
+    return None  # only needed for 2-3 coins
 
 
 def compare(a, b):

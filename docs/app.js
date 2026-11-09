@@ -20,7 +20,15 @@ const ago = (iso) => {
   return m < 1 ? "just now" : m < 60 ? `${Math.round(m)} min ago` : m < 2880 ? `${(m / 60).toFixed(1)} h ago` : `${Math.round(m / 1440)} days ago`;
 };
 
-const state = { tab: "live", coin: "ALL", fee: "best", data: {}, charts: [] };
+const state = { tab: "live", coin: "ALL", fee: "best", venue: "kalshi_taker", betsrc: "backtest", data: {}, charts: [] };
+const VENUES = [
+  { key: "kalshi_taker", name: "Kalshi (instant)", fee: "~1.75¢" },
+  { key: "kalshi_maker", name: "Kalshi (limit)", fee: "~0.44¢" },
+  { key: "robinhood", name: "Robinhood", fee: "~2¢" },
+  { key: "polymarket", name: "Polymarket", fee: "~1.5¢" },
+];
+const venueInfo = () => VENUES.find((v) => v.key === state.venue) || VENUES[0];
+const money = (x, d = 2) => (x == null ? "–" : (x < 0 ? "−$" : "+$") + Math.abs(x).toFixed(d));
 const FEES = [
   { key: "best", name: "Best case", pct: "0.1%" },
   { key: "cb_maker", name: "Coinbase limit order", pct: "0.5%" },
@@ -138,6 +146,7 @@ function performanceSection(d, kind) {
   let html = coinChips();
   if (kind === "live") html += priceSection();
   html += `<h2>Matchups${pooled ? " · all coins pooled" : ""}</h2>${matchups(coinData)}`;
+  html += coinCompareSection(d.coin_compare);
   html += `<p class="note">Edge = Kronos hit rate minus the baseline's, in percentage points. "Beats it" needs a one-sided p-value under 0.05; anything else could be luck.</p>`;
   html += `<h2>Scoreboard</h2>${pooled ? "" : feeChips()}${scoreboard(coinData, pooled)}`;
   html += `<p class="note">Paper P&amp;L: buy when the call is "up", sit in cash otherwise, paying <b>${feeInfo().pct} on every buy and every sell</b> (${feeInfo().name}).
@@ -150,6 +159,115 @@ function performanceSection(d, kind) {
       <div><h2>Paper P&amp;L vs holding · ${feeInfo().name} fees</h2><div class="chartbox"><canvas id="pnlChart"></canvas></div></div></div>`;
   }
   return html;
+}
+
+/* ---------- Which coin is Kronos best at? ---------- */
+function coinCompareSection(cc) {
+  if (!cc || !cc.rows?.length) return "";
+  const rows = cc.rows;
+  const verdict = cc.p_differ == null ? `<span class="verdict meh">NOT ENOUGH DATA</span>`
+    : cc.p_differ < 0.05 ? `<span class="verdict yes">✓ REAL DIFFERENCE · BEST: ${esc(cc.best.replace("-USD", ""))}</span>`
+    : `<span class="verdict luck">≈ DIFFERENCES COULD BE LUCK (p=${cc.p_differ.toFixed(2)})</span>`;
+  return `<h2>Which coin is Kronos best at?</h2>
+    <div class="tablewrap"><table><thead><tr><th>Coin</th><th>Calls</th><th>Kronos hit rate</th><th>95% range</th><th>vs Momentum</th><th>vs Coin flip</th><th>Paper P&amp;L (${feeInfo().pct} fees)</th><th>$1 bets (${venueInfo().name})</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr class="${r.coin === cc.best && r.calls ? "bestrow" : ""}"><td><b>${esc(r.coin.replace("-USD", ""))}</b>${r.coin === cc.best && r.calls ? ' <span class="pill up">TOP</span>' : ""}</td>
+      <td>${num(r.calls)}</td><td><b>${pct(r.hit_rate)}</b></td><td>${pct(r.ci_low)} – ${pct(r.ci_high)}${ciBar(r)}</td>
+      <td class="${cls(r.vs_momentum?.edge_pp)}">${signed(r.vs_momentum?.edge_pp, 1, " pp")}</td>
+      <td class="${cls(r.vs_coin_flip?.edge_pp)}">${signed(r.vs_coin_flip?.edge_pp, 1, " pp")}</td>
+      <td class="${cls(r.pnl_by_fee?.[state.fee])}">${signed(r.pnl_by_fee?.[state.fee])}</td>
+      <td class="${cls(r.bets?.[state.venue]?.pnl)}">${money(r.bets?.[state.venue]?.pnl)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="note">${verdict} <span style="margin-left:6px">A chi-square test checks whether the gap between coins is bigger than luck would produce. "TOP" is just the highest so far.</span></div>`;
+}
+
+/* ---------- Bets tab ---------- */
+function venueChips() {
+  return `<div class="chips feechips" role="group" aria-label="Betting venue"><span class="rangeinfo" style="margin:0 4px 0 0">Venue:</span>${VENUES.map((v) =>
+    `<button class="chip" data-venue="${v.key}" aria-pressed="${state.venue === v.key}">${v.name} <span class="muted">${v.fee}</span></button>`).join("")}</div>`;
+}
+
+function renderBets(live, bt) {
+  const src = state.betsrc === "live" ? live : bt;
+  const v = venueInfo();
+  let html = `<div class="card" style="margin-top:16px"><div class="label">How these bets work</div>
+    <p class="sub" style="font-size:13.5px;line-height:1.55;margin:6px 0 0">Each 15-minute window has a contract like “BTC up in the next 15 mins?”. It pays <b>$1</b> if you're right and $0 if not.
+    At an even price of <b>50¢</b> plus a ~2¢ fee you need to be right about <b>52%</b> of the time to break even, versus about 90% when buying and selling the coin.
+    Paper only: nothing is bet.</p></div>`;
+  html += `<div class="chips" role="group" aria-label="Data" style="margin-top:14px">${[["backtest", "Backtest history"], ["live", "Live"]].map(([k, l]) =>
+    `<button class="chip" data-betsrc="${k}" aria-pressed="${state.betsrc === k}">${l}</button>`).join("")}</div>`;
+  html += coinChips() + venueChips();
+
+  // A) even-odds paper bets
+  html += `<h2>Paper $1 bets on every call at even odds (50¢) · ${esc(v.name)} fees</h2>`;
+  if (!src || !src.coins) {
+    html += `<p class="muted">No ${state.betsrc} data yet.</p>`;
+  } else {
+    const cd = src.coins[state.coin];
+    const be = cd.models.kronos.summary.bets?.[state.venue]?.breakeven;
+    html += `<div class="tablewrap"><table><thead><tr><th>Strategy</th><th>Bets</th><th>Hit rate</th><th>Needed to break even</th><th>Profit / loss</th><th>Return per $ bet</th></tr></thead><tbody>
+      ${MODELS.map((m) => {
+        const sm = cd.models[m.key].summary, b = sm.bets?.[state.venue];
+        return `<tr style="--sc:${css(m.color)}"><td><span class="swatch" style="background:${css(m.color)}"></span>Bet with ${m.name}</td><td>${num(sm.calls)}</td>
+          <td><b class="${sm.hit_rate != null && b && sm.hit_rate > b.breakeven ? "pos" : ""}">${pct(sm.hit_rate)}</b></td><td>${b ? pct(b.breakeven) : "–"}</td>
+          <td class="${cls(b?.pnl)}"><b>${money(b?.pnl)}</b></td><td class="${cls(b?.roi)}">${b?.roi == null ? "–" : signed(b.roi * 100, 1)}</td></tr>`;
+      }).join("")}</tbody></table></div>
+      <p class="note">One contract per call; Kronos skips unsure candles. Even odds is a simplification: real prices move with the crowd (see below). Break-even here: ${be ? pct(be) : "–"}.</p>`;
+    if (state.coin !== "ALL") html += `<div class="chartbox" style="margin-top:10px"><canvas id="betChart"></canvas></div>`;
+    else html += `<p class="note">Pick a coin to see the running total chart.</p>`;
+  }
+
+  // B) Kronos vs the Kalshi crowd
+  const k = live?.kalshi;
+  html += `<h2>Kronos vs the Kalshi crowd (live, real prices)</h2>`;
+  if (!k || !k.settled) {
+    html += `<div class="card"><p class="sub" style="font-size:13.5px;margin:0">Collecting: every 15 minutes the logger records Kalshi's prices for BTC, ETH and SOL right when Kronos makes its call,
+      then Kalshi's official result. ${k ? num(k.windows) + " windows logged so far; waiting for results." : ""} The comparison appears here as windows settle.</p></div>`;
+  } else {
+    const a = k.coins[state.coin] || k.coins.ALL;
+    const sharper = a.brier_kronos != null && a.brier_crowd != null ? (a.brier_kronos < a.brier_crowd ? "Kronos" : "The crowd") : null;
+    html += `<div class="cards">
+      <div class="card"><div class="label">Kronos right</div><div class="big">${pct(a.kronos_hit)}</div><div class="sub">${num(a.kronos_calls)} calls · 95% range ${pct(a.kronos_ci[0])}–${pct(a.kronos_ci[1])}</div></div>
+      <div class="card"><div class="label">Crowd's favorite right</div><div class="big">${pct(a.crowd_hit)}</div><div class="sub">${num(a.crowd_calls)} windows · the side priced above 50¢</div></div>
+      <div class="card"><div class="label">Whose odds are sharper?</div><div class="big" style="font-size:24px">${sharper ? esc(sharper) : "–"}</div>
+        <div class="sub">Brier score (lower = better): Kronos ${a.brier_kronos?.toFixed(3) ?? "–"} vs crowd ${a.brier_crowd?.toFixed(3) ?? "–"}</div>
+        ${sharper === "Kronos" ? `<span class="verdict yes">KRONOS KNOWS MORE</span>` : sharper ? `<span class="verdict no">CROWD KNOWS MORE</span>` : ""}</div>
+      <div class="card"><div class="label">Bet every Kronos call at the real price</div><div class="big ${cls(a.follow[state.venue])}">${money(a.follow[state.venue])}</div>
+        <div class="sub">avg price paid ${a.avg_price != null ? Math.round(a.avg_price * 100) + "¢" : "–"} · ${esc(v.name)} fees</div></div>
+      <div class="card"><div class="label">Only “value” bets</div><div class="big ${cls(a.value[state.venue])}">${money(a.value[state.venue])}</div>
+        <div class="sub">${num(a.value_bets)} bets where Kronos's chance beat the price + fee by 2+ points</div></div>
+    </div>
+    <div class="chartbox" style="margin-top:10px"><canvas id="crowdChart"></canvas></div>
+    <h2>Recent windows</h2><div class="tablewrap"><table><thead><tr><th>Window (your time)</th><th>Coin</th><th>Kalshi “Up” price</th><th>Kronos</th><th>Result</th><th>Bet price</th><th>Bet P&amp;L (Kalshi instant)</th></tr></thead><tbody>
+    ${k.recent.filter((r) => state.coin === "ALL" || r.coin === state.coin).slice(0, 40).map((r) => `<tr class="${r.pnl == null ? "" : r.pnl > 0 ? "hit" : "miss"}">
+      <td>${fmtTime(r.t)}</td><td>${esc(r.coin.replace("-USD", ""))}</td><td>${Math.round(r.yes_bid * 100)}–${Math.round(r.yes_ask * 100)}¢</td>
+      <td>${dirPill(r.dir)} <span class="muted">${r.dir && r.dir !== "skip" ? pct(r.dir === "up" ? r.p_up : 1 - r.p_up, 0) : ""}</span>${r.value_bet ? ' <span class="pill up">VALUE</span>' : ""}</td>
+      <td>${r.result === "yes" ? '<span class="pos">▲ Up</span>' : '<span class="neg">▼ Down</span>'}</td>
+      <td>${r.price == null ? "–" : Math.round(r.price * 100) + "¢"}</td><td class="${cls(r.pnl)}">${r.pnl == null ? "–" : money(r.pnl)}</td></tr>`).join("")}
+    </tbody></table></div>`;
+  }
+  html += `<p class="note">Kalshi settles on the CF Benchmarks index (60-second averages), not Coinbase's candle, so results can differ slightly from the Live tab.
+    Candle Lab records prices about 75 seconds into each window, so the odds may already have moved. Fees: Kalshi 0.07×price×(1−price) for instant fills, 0.0175× for limit orders;
+    Robinhood ~2¢ per contract; Polymarket reported up to ~3% at 50/50 (unconfirmed for US). Real money carries real risk, and the tax treatment of these contracts is unsettled.</p>`;
+  return html;
+}
+
+function drawBetCharts(live, bt) {
+  const src = state.betsrc === "live" ? live : bt;
+  if ($("#betChart") && src?.coins?.[state.coin]) {
+    const cd = src.coins[state.coin].models, r = cd.kronos.rolling;
+    lineChart($("#betChart"), MODELS.map((m) => ({
+      label: "Bet with " + m.name, borderColor: css(m.color), backgroundColor: css(m.color),
+      data: cd[m.key].rolling.map((p) => ({ x: p.t, y: p.bet_f?.[state.venue] ?? null })),
+    })), { refLine: { y: 0, label: "Break-even" }, yFmt: (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(0),
+      xType: r.length && r[r.length - 1].t - r[0].t > 3 * 86400 ? "days" : "time" });
+  }
+  const k = live?.kalshi;
+  if ($("#crowdChart") && k?.curve?.length) {
+    lineChart($("#crowdChart"), [
+      { label: "Bet every Kronos call", borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), data: k.curve.map((p) => ({ x: p.t, y: p["follow_" + state.venue] })) },
+      { label: "Value bets only", borderColor: css("--warn"), backgroundColor: css("--warn"), data: k.curve.map((p) => ({ x: p.t, y: p["value_" + state.venue] })) },
+    ], { refLine: { y: 0, label: "Break-even" }, yFmt: (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2) });
+  }
 }
 
 /* ---------- Is Kronos's confidence honest? (calibration) ---------- */
@@ -268,6 +386,7 @@ const HEADS = {
   live: ["Live", "Predicting the 15-minute candle forming right now, scored when it closes"],
   backtest: ["Backtest", "Walk-forward replay of history the model never trained on"],
   experiments: ["Experiments", "Champion vs challengers, tested every night"],
+  bets: ["Bets", "15-minute “up or down” prediction markets (Kalshi, Robinhood, Polymarket): paper bets on Kronos's calls, and Kronos vs the betting crowd"],
   candlesticks: ["Candlesticks", "A cheat sheet: what every common candlestick pattern looks like and what traders read into it"],
 };
 const pageHead = (t) => `<div class="page-head"><h1>${HEADS[t][0]}</h1><p>${HEADS[t][1]}</p></div>`;
@@ -380,17 +499,24 @@ async function render() {
   destroyCharts();
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === state.tab));
   const main = $("#main");
-  const d = state.tab === "candlesticks" ? null : await load(state.tab);
+  const d = state.tab === "candlesticks" ? null : state.tab === "bets" ? await load("live") : await load(state.tab);
   try {
     if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) { drawPerformanceCharts(d); startPrices(); } }
     if (state.tab === "backtest") { main.innerHTML = pageHead("backtest") + renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
     if (state.tab === "experiments") { main.innerHTML = pageHead("experiments") + renderExperiments(d); drawExperimentChart(d); }
     if (state.tab === "candlesticks") { main.innerHTML = pageHead("candlesticks") + renderCandles(); bindCandles(); }
+    if (state.tab === "bets") { const bt = await load("backtest"); main.innerHTML = pageHead("bets") + renderBets(d, bt); drawBetCharts(d, bt); }
   } catch (e) {
     console.error(e);
     main.innerHTML = `<p class="pad muted">Could not render this tab: ${esc(e.message)}</p>`;
   }
   main.querySelectorAll("[data-coin]").forEach((b) => b.addEventListener("click", () => { state.coin = b.dataset.coin; save(); render(); }));
+  main.querySelectorAll("[data-venue]").forEach((b) => b.addEventListener("click", () => {
+    state.venue = b.dataset.venue; save(); const y = window.scrollY; render().then(() => window.scrollTo(0, y));
+  }));
+  main.querySelectorAll("[data-betsrc]").forEach((b) => b.addEventListener("click", () => {
+    state.betsrc = b.dataset.betsrc; save(); const y = window.scrollY; render().then(() => window.scrollTo(0, y));
+  }));
   main.querySelectorAll("[data-fee]").forEach((b) => b.addEventListener("click", () => {
     state.fee = b.dataset.fee; save(); const y = window.scrollY; render().then(() => window.scrollTo(0, y));
   }));
@@ -528,7 +654,8 @@ function renderOdds(coin) {
   if (!m) {
     el.innerHTML = `<div class="olabel">Next 15-minute candle</div>
       <div class="obar off"><div class="oup" style="width:50%">▲ UP –</div><div class="odown" style="width:50%">– DOWN ▼</div></div>
-      <div class="osub">Waiting for Kronos's next call · ${rec}</div>`;
+      <div class="osub">Waiting for Kronos's next call · ${rec}</div>
+      <div class="wbtns"><button class="wbtn up" data-wbet="${coin}:up">Practice: bet ▲ Up</button><button class="wbtn down" data-wbet="${coin}:down">Practice: bet ▼ Down</button></div>`;
     return;
   }
   const up = pUp(m), left = Math.max(0, Math.round(m.t + 900 - Date.now() / 1000));
@@ -541,7 +668,17 @@ function renderOdds(coin) {
       <div class="odown${up < 0.5 ? " lead" : ""}" style="width:${Math.max((1 - up) * 100, 14)}%">${Math.round((1 - up) * 100)}% DOWN ▼</div></div>
     <div class="osub">Kronos ${m.dir === "skip" ? "is too unsure to call it" : "calls <b>" + m.dir.toUpperCase() + "</b>"}${m.pred != null ? ` · expects close <b>$${fmtPrice(m.pred)}</b>` : ""}
       ${move != null ? ` · since the call: <span class="${move >= 0 ? "pos" : "neg"}">${move >= 0 ? "▲" : "▼"} ${signed(move, Math.abs(move) < 0.1 ? 3 : 2)}</span> ${onTrack}` : ""}</div>
-    <div class="osub">${rec}</div>${honesty(coin, m)}`;
+    <div class="osub">${rec}</div>${crowdLine(coin, m)}${honesty(coin, m)}
+    <div class="wbtns"><button class="wbtn up" data-wbet="${coin}:up">Practice: bet ▲ Up</button><button class="wbtn down" data-wbet="${coin}:down">Practice: bet ▼ Down</button></div>`;
+}
+
+// Kalshi's betting crowd for the same window, as logged at Kronos's call.
+function crowdLine(coin, m) {
+  const k = state.data.live?.kalshi?.now?.[coin];
+  if (!k || k.t !== m.t || k.yes_bid == null) return "";
+  const up = (k.yes_bid + k.yes_ask) / 2;
+  return `<div class="osub">Kalshi crowd: <b class="pos">▲ Up ${Math.round(k.yes_bid * 100)}–${Math.round(k.yes_ask * 100)}¢</b>
+    (≈${Math.round(up * 100)}% chance) at ${Math.round(k.secs)}s into the window · Kronos says ${Math.round(pUp(m) * 100)}%</div>`;
 }
 
 // "When Kronos has said this much before, it was right X%": from the backtest's calibration.
@@ -682,7 +819,7 @@ async function startPrices() {
 }
 
 /* ------------------------------------------------------------ start */
-function save() { try { localStorage.setItem("candlelab", JSON.stringify({ tab: state.tab, coin: state.coin, fee: state.fee })); } catch {} }
+function save() { try { localStorage.setItem("candlelab", JSON.stringify({ tab: state.tab, coin: state.coin, fee: state.fee, venue: state.venue, betsrc: state.betsrc })); } catch {} }
 try { Object.assign(state, JSON.parse(localStorage.getItem("candlelab") || "{}")); } catch {}
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; save(); render(); }));
 headerStatus();
@@ -694,13 +831,13 @@ async function fetchFresh(name) {
 }
 setInterval(async () => {
   try {
-    const names = [...new Set(["live", state.tab])].filter((n) => n !== "candlesticks");
+    const names = [...new Set(["live", state.tab === "bets" ? "backtest" : state.tab])].filter((n) => n !== "candlesticks");
     const fresh = await Promise.all(names.map(fetchFresh));
     let changed = false;
     names.forEach((n, i) => {
       if (fresh[i] && fresh[i].updated_at !== state.data[n]?.updated_at) {
         state.data[n] = fresh[i];
-        if (n === state.tab) changed = true;
+        if (n === state.tab || state.tab === "bets") changed = true;
       }
     });
     await headerStatus();

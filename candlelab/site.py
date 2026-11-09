@@ -7,7 +7,9 @@ import pandas as pd
 
 from .config import (BACKTEST_DIR, LIVE_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
                      load_champion_state, load_json, save_json)
-from .stats import calibration, clean_nans, compare, rolling_series, summarize
+from .stats import (bet_fee, bet_pnl, calibration, clean_nans, coins_differ, compare, rolling_series,
+                    summarize, wilson)
+from .config import BET_VENUES
 
 MODELS = ["kronos", "momentum", "coin_flip", "always_up"]
 DIR_NUM = {"up": 1, "down": -1, "skip": 0}
@@ -37,6 +39,90 @@ def section(long_df, window):
               for b in MODELS if b != "kronos"}
         cal = calibration(g[g["model"] == "kronos"]) if "conf" in g else []
         out[coin] = {"models": models, "kronos_vs": vs, "calibration": cal}
+    return out
+
+
+def coin_compare(sec):
+    """Kronos side by side on each coin, plus: do the coins really differ, or is it luck?"""
+    rows = []
+    for coin in COINS:
+        if coin not in sec:
+            continue
+        k = sec[coin]["models"]["kronos"]["summary"]
+        rows.append({"coin": coin, "calls": k["calls"], "hit_rate": k["hit_rate"], "ci_low": k["ci_low"], "ci_high": k["ci_high"],
+                     "p_vs_50": k["p_vs_50"], "vs_momentum": sec[coin]["kronos_vs"]["momentum"],
+                     "vs_coin_flip": sec[coin]["kronos_vs"]["coin_flip"], "pnl_by_fee": k.get("pnl_by_fee"),
+                     "bets": k.get("bets")})
+    p = coins_differ({r["coin"]: (sec[r["coin"]]["models"]["kronos"]["summary"]["hits"], r["calls"]) for r in rows})
+    best = max((r for r in rows if r["calls"]), key=lambda r: r["hit_rate"], default=None)
+    return {"rows": rows, "p_differ": p, "best": best["coin"] if best else None}
+
+
+def kalshi_section(pred):
+    """Kronos vs the Kalshi crowd on the same 15-minute windows (live only)."""
+    from . import kalshi
+    k = kalshi.load()
+    out = {"windows": int(len(k)), "settled": 0, "coins": {}, "recent": [], "curve": [], "now": {}}
+    if k.empty:
+        return out
+    kr = pred[pred["model"] == "kronos"][["coin", "candle_ts", "direction", "confidence", "pred_close"]]
+    m = k.merge(kr, on=["coin", "candle_ts"], how="left")
+    m["p_up"] = np.where(m["direction"] == "up", m["confidence"], np.where(m["direction"] == "down", 1 - m["confidence"], 0.5))
+    for c in ["yes_bid", "yes_ask", "no_bid", "no_ask"]:
+        m[c] = pd.to_numeric(m[c], errors="coerce")
+    m["mid"] = ((m["yes_bid"] + m["yes_ask"]) / 2).clip(0.01, 0.99)
+    # odds right now (latest window per coin) for the Live page
+    latest = m.sort_values("candle_ts").groupby("coin").tail(1)
+    out["now"] = {r.coin: {"t": int(r.candle_ts), "yes_bid": r.yes_bid, "yes_ask": r.yes_ask, "secs": r.secs_into_window}
+                  for r in latest.itertuples()}
+
+    s = m[m["result"].isin(["yes", "no"]) & m["yes_ask"].between(0.01, 0.99) & m["no_ask"].between(0.01, 0.99)].copy()
+    out["settled"] = int(len(s))
+    if s.empty:
+        return out
+    s["up"] = (s["result"] == "yes").astype(int)
+    s["call"] = s["direction"].isin(["up", "down"])
+    s["k_won"] = ((s["direction"] == "up") == (s["up"] == 1)) & s["call"]
+    s["price"] = np.where(s["direction"] == "up", s["yes_ask"], s["no_ask"])   # buy Kronos's side at the ask
+    s["k_prob"] = np.where(s["direction"] == "up", s["p_up"], 1 - s["p_up"])
+    for v in BET_VENUES:
+        s[f"follow_{v}"] = np.where(s["call"], bet_pnl(s["k_won"], s["price"], v), 0.0)
+        # value bet: only when Kronos's own chance beats the price + fee by 2 points
+        s[f"value_{v}"] = np.where(s["call"] & (s["k_prob"] > s["price"] + bet_fee(v, s["price"]) + 0.02),
+                                   s[f"follow_{v}"], 0.0)
+    s["value_bet"] = s["call"] & (s["k_prob"] > s["price"] + bet_fee("kalshi_taker", s["price"]) + 0.02)
+
+    def stats_for(g):
+        calls = g[g["call"]]
+        kh, kn = int(calls["k_won"].sum()), len(calls)
+        fav = (g["mid"] > 0.5).astype(int) == g["up"]
+        fh, fn = int(fav[g["mid"] != 0.5].sum()), int((g["mid"] != 0.5).sum())
+        has_p = g["direction"].notna()
+        lo, hi = wilson(kh, kn)
+        return {
+            "windows": int(len(g)), "kronos_calls": kn, "kronos_hits": kh, "kronos_hit": kh / kn if kn else None,
+            "kronos_ci": [lo, hi], "crowd_calls": fn, "crowd_hit": fh / fn if fn else None,
+            "brier_kronos": float(((g.loc[has_p, "p_up"] - g.loc[has_p, "up"]) ** 2).mean()) if has_p.any() else None,
+            "brier_crowd": float(((g.loc[has_p, "mid"] - g.loc[has_p, "up"]) ** 2).mean()) if has_p.any() else None,
+            "follow": {v: float(g[f"follow_{v}"].sum()) for v in BET_VENUES},
+            "value": {v: float(g[f"value_{v}"].sum()) for v in BET_VENUES},
+            "value_bets": int(g["value_bet"].sum()),
+            "avg_price": float(calls["price"].mean()) if kn else None,
+        }
+
+    out["coins"] = {c: stats_for(g) for c, g in s.groupby("coin")}
+    out["coins"]["ALL"] = stats_for(s)
+    s = s.sort_values("candle_ts")
+    cum = s[[f"follow_{v}" for v in BET_VENUES] + [f"value_{v}" for v in BET_VENUES]].cumsum()
+    step = max(1, len(s) // 300)
+    out["curve"] = [{"t": int(t), **{c: round(float(cum.iloc[i][c]), 2) for c in cum.columns}}
+                    for i, t in enumerate(s["candle_ts"]) if i % step == 0 or i == len(s) - 1]
+    out["recent"] = [{"t": int(r.candle_ts), "coin": r.coin, "yes_bid": r.yes_bid, "yes_ask": r.yes_ask,
+                      "mid": r.mid, "dir": r.direction if isinstance(r.direction, str) else None,
+                      "p_up": r.p_up, "result": r.result, "price": r.price if r.call else None,
+                      "pnl": round(float(getattr(r, "follow_kalshi_taker")), 3) if r.call else None,
+                      "value_bet": bool(r.value_bet)}
+                     for r in s.tail(60).iloc[::-1].itertuples()]
     return out
 
 
@@ -97,7 +183,9 @@ def build_live():
         "champion": state["champion"], "probation": state.get("probation"),
         "coins": section(long_df, window=96),
         "recent": recent,
+        "kalshi": kalshi_section(df),
     }
+    out["coin_compare"] = coin_compare(out["coins"])
     write_calibration_csv(out["coins"], LIVE_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "live.json", clean_nans(out))
 
@@ -126,6 +214,7 @@ def build_backtest():
                   "last": int(long_df["ts"].max()) if len(long_df) else None},
         "coins": section(long_df, window=960),
     }
+    out["coin_compare"] = coin_compare(out["coins"])
     write_calibration_csv(out["coins"], BACKTEST_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "backtest.json", clean_nans(out))
 

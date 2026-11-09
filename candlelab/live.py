@@ -151,6 +151,13 @@ def run(state=None):
 def main():
     argparse.ArgumentParser(description=__doc__).parse_args()
     run()
+    # The Kalshi crowd's odds for this window (read-only public data); never fatal.
+    try:
+        from . import kalshi
+        print("Kalshi:")
+        kalshi.update(data.last_closed_open_ts() + GRANULARITY)
+    except Exception as e:  # noqa: BLE001
+        print(f"Kalshi logging skipped: {e}")
     from . import site
     site.build_live()
 
