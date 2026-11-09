@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-09T19:46:20Z",
+  "updated_at": "2026-11-09T20:01:20Z",
   "marks": {
     "BTC-USD": [
       {
@@ -53,6 +53,15 @@
         "conf": 0.6,
         "last": 74932.5,
         "pred": 74947.210938,
+        "actual": 74778.99,
+        "ok": 0
+      },
+      {
+        "t": 1794254400,
+        "dir": "skip",
+        "conf": 0.5,
+        "last": 74778.99,
+        "pred": 74791.359375,
         "actual": null,
         "ok": null
       }
@@ -109,6 +118,15 @@
         "conf": 0.8,
         "last": 2133.79,
         "pred": 2137.814941,
+        "actual": 2125.93,
+        "ok": 0
+      },
+      {
+        "t": 1794254400,
+        "dir": "up",
+        "conf": 0.9,
+        "last": 2125.93,
+        "pred": 2128.183594,
         "actual": null,
         "ok": null
       }
@@ -165,14 +183,23 @@
         "conf": 0.6,
         "last": 86.75,
         "pred": 86.773918,
+        "actual": 86.44,
+        "ok": 0
+      },
+      {
+        "t": 1794254400,
+        "dir": "up",
+        "conf": 0.6,
+        "last": 86.44,
+        "pred": 86.478317,
         "actual": null,
         "ok": null
       }
     ]
   },
-  "last_run_at": "2026-11-09 19:46:17",
-  "total_rows": 72,
-  "scored_rows": 60,
+  "last_run_at": "2026-11-09 20:01:17",
+  "total_rows": 84,
+  "scored_rows": 72,
   "champion": {
     "model": "NeoQuasar/Kronos-small",
     "tokenizer": "NeoQuasar/Kronos-Tokenizer-base",
@@ -193,29 +220,51 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 2,
-            "hit_rate": 0.4,
-            "ci_low": 0.117618,
-            "ci_high": 0.76928,
+            "hit_rate": 0.333333,
+            "ci_low": 0.096769,
+            "ci_high": 0.700012,
             "coverage": 1.0,
-            "p_vs_50": 0.67264,
-            "mean_abs_pct_error": 0.163626,
-            "pnl_pct": -0.200757,
-            "hold_pct": 0.279882,
-            "trades": 2,
+            "p_vs_50": 0.792892,
+            "mean_abs_pct_error": 0.173848,
+            "pnl_pct": -0.504805,
+            "hold_pct": 0.074445,
+            "trades": 3,
             "pnl_by_fee": {
-              "best": -0.200757,
-              "cb_maker": -0.99835,
-              "cb_taker": -1.792743,
-              "robinhood": -1.891817
+              "best": -0.504805,
+              "cb_maker": -1.695163,
+              "cb_taker": -2.87599,
+              "robinhood": -3.022924
             },
             "hold_by_fee": {
-              "best": 0.279882,
-              "cb_maker": -0.121639,
-              "cb_taker": -0.52316,
-              "robinhood": -0.57335
+              "best": 0.074445,
+              "cb_maker": -0.326254,
+              "cb_taker": -0.726952,
+              "robinhood": -0.77704
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -1.105,
+                "roi": -0.355878,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -1.02625,
+                "roi": -0.339116,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -1.12,
+                "roi": -0.358974,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -1.09,
+                "roi": -0.352751,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -235,6 +284,12 @@
                 "cb_maker": -0.601,
                 "cb_taker": -1.001,
                 "robinhood": -1.051
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -253,6 +308,12 @@
                 "cb_maker": -0.569,
                 "cb_taker": -0.969,
                 "robinhood": -1.019
+              },
+              "bet_f": {
+                "kalshi_taker": -0.03,
+                "kalshi_maker": -0.01,
+                "robinhood": -0.04,
+                "polymarket": -0.03
               }
             },
             {
@@ -271,6 +332,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.046,
                 "robinhood": -1.096
+              },
+              "bet_f": {
+                "kalshi_taker": 0.45,
+                "kalshi_maker": 0.49,
+                "robinhood": 0.44,
+                "polymarket": 0.45
               }
             },
             {
@@ -289,6 +356,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.047,
                 "robinhood": -1.097
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -307,35 +380,87 @@
                 "cb_maker": -0.122,
                 "cb_taker": -0.523,
                 "robinhood": -0.573
+              },
+              "bet_f": {
+                "kalshi_taker": -0.59,
+                "kalshi_maker": -0.52,
+                "robinhood": -0.6,
+                "polymarket": -0.58
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": -0.505,
+              "hold": 0.074,
+              "pnl_f": {
+                "best": -0.505,
+                "cb_maker": -1.695,
+                "cb_taker": -2.876,
+                "robinhood": -3.023
+              },
+              "hold_f": {
+                "best": 0.074,
+                "cb_maker": -0.326,
+                "cb_taker": -0.727,
+                "robinhood": -0.777
+              },
+              "bet_f": {
+                "kalshi_taker": -1.1,
+                "kalshi_maker": -1.03,
+                "robinhood": -1.12,
+                "polymarket": -1.09
               }
             }
           ]
         },
         "momentum": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 2,
-            "hit_rate": 0.4,
-            "ci_low": 0.117618,
-            "ci_high": 0.76928,
+            "hit_rate": 0.333333,
+            "ci_low": 0.096769,
+            "ci_high": 0.700012,
             "coverage": 1.0,
-            "p_vs_50": 0.67264,
+            "p_vs_50": 0.792892,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.277322,
-            "hold_pct": 0.279882,
-            "trades": 2,
+            "pnl_pct": -0.581137,
+            "hold_pct": 0.074445,
+            "trades": 3,
             "pnl_by_fee": {
-              "best": -0.277322,
-              "cb_maker": -1.074303,
-              "cb_taker": -1.868087,
-              "robinhood": -1.967085
+              "best": -0.581137,
+              "cb_maker": -1.770582,
+              "cb_taker": -2.950502,
+              "robinhood": -3.097325
             },
             "hold_by_fee": {
-              "best": 0.279882,
-              "cb_maker": -0.121639,
-              "cb_taker": -0.52316,
-              "robinhood": -0.57335
+              "best": 0.074445,
+              "cb_maker": -0.326254,
+              "cb_taker": -0.726952,
+              "robinhood": -0.77704
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -1.105,
+                "roi": -0.355878,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -1.02625,
+                "roi": -0.339116,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -1.12,
+                "roi": -0.358974,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -1.09,
+                "roi": -0.352751,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -355,6 +480,12 @@
                 "cb_maker": -0.601,
                 "cb_taker": -1.001,
                 "robinhood": -1.051
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -373,6 +504,12 @@
                 "cb_maker": -0.569,
                 "cb_taker": -0.969,
                 "robinhood": -1.019
+              },
+              "bet_f": {
+                "kalshi_taker": -0.03,
+                "kalshi_maker": -0.01,
+                "robinhood": -0.04,
+                "polymarket": -0.03
               }
             },
             {
@@ -391,6 +528,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.046,
                 "robinhood": -1.096
+              },
+              "bet_f": {
+                "kalshi_taker": -0.55,
+                "kalshi_maker": -0.51,
+                "robinhood": -0.56,
+                "polymarket": -0.55
               }
             },
             {
@@ -409,6 +552,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.047,
                 "robinhood": -1.097
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -427,35 +576,87 @@
                 "cb_maker": -0.122,
                 "cb_taker": -0.523,
                 "robinhood": -0.573
+              },
+              "bet_f": {
+                "kalshi_taker": -0.59,
+                "kalshi_maker": -0.52,
+                "robinhood": -0.6,
+                "polymarket": -0.58
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": -0.581,
+              "hold": 0.074,
+              "pnl_f": {
+                "best": -0.581,
+                "cb_maker": -1.771,
+                "cb_taker": -2.951,
+                "robinhood": -3.097
+              },
+              "hold_f": {
+                "best": 0.074,
+                "cb_maker": -0.326,
+                "cb_taker": -0.727,
+                "robinhood": -0.777
+              },
+              "bet_f": {
+                "kalshi_taker": -1.1,
+                "kalshi_maker": -1.03,
+                "robinhood": -1.12,
+                "polymarket": -1.09
               }
             }
           ]
         },
         "coin_flip": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
-            "hits": 5,
+            "candles": 6,
+            "calls": 6,
+            "hits": 6,
             "hit_rate": 1.0,
-            "ci_low": 0.565509,
+            "ci_low": 0.609657,
             "ci_high": 1.0,
             "coverage": 1.0,
-            "p_vs_50": 0.012674,
+            "p_vs_50": 0.007153,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.259821,
-            "hold_pct": 0.279882,
-            "trades": 3,
+            "pnl_pct": 0.159562,
+            "hold_pct": 0.074445,
+            "trades": 4,
             "pnl_by_fee": {
-              "best": 0.259821,
-              "cb_maker": -0.939685,
-              "cb_taker": -2.129586,
-              "robinhood": -2.27765
+              "best": 0.159562,
+              "cb_maker": -1.434987,
+              "cb_taker": -3.01042,
+              "robinhood": -3.206012
             },
             "hold_by_fee": {
-              "best": 0.279882,
-              "cb_maker": -0.121639,
-              "cb_taker": -0.52316,
-              "robinhood": -0.57335
+              "best": 0.074445,
+              "cb_maker": -0.326254,
+              "cb_taker": -0.726952,
+              "robinhood": -0.77704
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": 2.895,
+                "roi": 0.932367,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": 2.97375,
+                "roi": 0.982652,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": 2.88,
+                "roi": 0.923077,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": 2.91,
+                "roi": 0.941748,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -475,6 +676,12 @@
                 "cb_maker": -0.601,
                 "cb_taker": -1.001,
                 "robinhood": -1.051
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -493,6 +700,12 @@
                 "cb_maker": -0.569,
                 "cb_taker": -0.969,
                 "robinhood": -1.019
+              },
+              "bet_f": {
+                "kalshi_taker": 0.96,
+                "kalshi_maker": 0.99,
+                "robinhood": 0.96,
+                "polymarket": 0.97
               }
             },
             {
@@ -511,6 +724,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.046,
                 "robinhood": -1.096
+              },
+              "bet_f": {
+                "kalshi_taker": 1.45,
+                "kalshi_maker": 1.49,
+                "robinhood": 1.44,
+                "polymarket": 1.46
               }
             },
             {
@@ -529,6 +748,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.047,
                 "robinhood": -1.097
+              },
+              "bet_f": {
+                "kalshi_taker": 1.93,
+                "kalshi_maker": 1.98,
+                "robinhood": 1.92,
+                "polymarket": 1.94
               }
             },
             {
@@ -547,35 +772,87 @@
                 "cb_maker": -0.122,
                 "cb_taker": -0.523,
                 "robinhood": -0.573
+              },
+              "bet_f": {
+                "kalshi_taker": 2.41,
+                "kalshi_maker": 2.48,
+                "robinhood": 2.4,
+                "polymarket": 2.42
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": 0.16,
+              "hold": 0.074,
+              "pnl_f": {
+                "best": 0.16,
+                "cb_maker": -1.435,
+                "cb_taker": -3.01,
+                "robinhood": -3.206
+              },
+              "hold_f": {
+                "best": 0.074,
+                "cb_maker": -0.326,
+                "cb_taker": -0.727,
+                "robinhood": -0.777
+              },
+              "bet_f": {
+                "kalshi_taker": 2.9,
+                "kalshi_maker": 2.97,
+                "robinhood": 2.88,
+                "polymarket": 2.91
               }
             }
           ]
         },
         "always_up": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 2,
-            "hit_rate": 0.4,
-            "ci_low": 0.117618,
-            "ci_high": 0.76928,
+            "hit_rate": 0.333333,
+            "ci_low": 0.096769,
+            "ci_high": 0.700012,
             "coverage": 1.0,
-            "p_vs_50": 0.67264,
+            "p_vs_50": 0.792892,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.279882,
-            "hold_pct": 0.279882,
+            "pnl_pct": 0.074445,
+            "hold_pct": 0.074445,
             "trades": 1,
             "pnl_by_fee": {
-              "best": 0.279882,
-              "cb_maker": -0.121639,
-              "cb_taker": -0.52316,
-              "robinhood": -0.57335
+              "best": 0.074445,
+              "cb_maker": -0.326254,
+              "cb_taker": -0.726952,
+              "robinhood": -0.77704
             },
             "hold_by_fee": {
-              "best": 0.279882,
-              "cb_maker": -0.121639,
-              "cb_taker": -0.52316,
-              "robinhood": -0.57335
+              "best": 0.074445,
+              "cb_maker": -0.326254,
+              "cb_taker": -0.726952,
+              "robinhood": -0.77704
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -1.105,
+                "roi": -0.355878,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -1.02625,
+                "roi": -0.339116,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -1.12,
+                "roi": -0.358974,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -1.09,
+                "roi": -0.352751,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -595,6 +872,12 @@
                 "cb_maker": -0.601,
                 "cb_taker": -1.001,
                 "robinhood": -1.051
+              },
+              "bet_f": {
+                "kalshi_taker": -0.52,
+                "kalshi_maker": -0.5,
+                "robinhood": -0.52,
+                "polymarket": -0.52
               }
             },
             {
@@ -613,6 +896,12 @@
                 "cb_maker": -0.569,
                 "cb_taker": -0.969,
                 "robinhood": -1.019
+              },
+              "bet_f": {
+                "kalshi_taker": -0.03,
+                "kalshi_maker": -0.01,
+                "robinhood": -0.04,
+                "polymarket": -0.03
               }
             },
             {
@@ -631,6 +920,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.046,
                 "robinhood": -1.096
+              },
+              "bet_f": {
+                "kalshi_taker": -0.55,
+                "kalshi_maker": -0.51,
+                "robinhood": -0.56,
+                "polymarket": -0.55
               }
             },
             {
@@ -649,6 +944,12 @@
                 "cb_maker": -0.647,
                 "cb_taker": -1.047,
                 "robinhood": -1.097
+              },
+              "bet_f": {
+                "kalshi_taker": -1.07,
+                "kalshi_maker": -1.02,
+                "robinhood": -1.08,
+                "polymarket": -1.06
               }
             },
             {
@@ -667,6 +968,36 @@
                 "cb_maker": -0.122,
                 "cb_taker": -0.523,
                 "robinhood": -0.573
+              },
+              "bet_f": {
+                "kalshi_taker": -0.59,
+                "kalshi_maker": -0.52,
+                "robinhood": -0.6,
+                "polymarket": -0.58
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": 0.074,
+              "hold": 0.074,
+              "pnl_f": {
+                "best": 0.074,
+                "cb_maker": -0.326,
+                "cb_taker": -0.727,
+                "robinhood": -0.777
+              },
+              "hold_f": {
+                "best": 0.074,
+                "cb_maker": -0.326,
+                "cb_taker": -0.727,
+                "robinhood": -0.777
+              },
+              "bet_f": {
+                "kalshi_taker": -1.1,
+                "kalshi_maker": -1.03,
+                "robinhood": -1.12,
+                "polymarket": -1.09
               }
             }
           ]
@@ -678,8 +1009,8 @@
           "p_value": 0.5
         },
         "coin_flip": {
-          "edge_pp": -60.0,
-          "p_value": 0.9969
+          "edge_pp": -66.67,
+          "p_value": 0.9997
         },
         "always_up": {
           "edge_pp": 0.0,
@@ -704,11 +1035,11 @@
           "lo": 0.6,
           "hi": 0.7,
           "stated": 0.6,
-          "calls": 1,
+          "calls": 2,
           "hits": 1,
-          "actual": 1.0,
-          "ci_low": 0.206543,
-          "ci_high": 1.0,
+          "actual": 0.5,
+          "ci_low": 0.094529,
+          "ci_high": 0.905471,
           "verdict": null
         },
         {
@@ -753,29 +1084,51 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 5,
-            "calls": 4,
+            "candles": 6,
+            "calls": 5,
             "hits": 3,
-            "hit_rate": 0.75,
-            "ci_low": 0.300636,
-            "ci_high": 0.954414,
-            "coverage": 0.8,
-            "p_vs_50": 0.158655,
-            "mean_abs_pct_error": 0.214652,
-            "pnl_pct": 0.570989,
-            "hold_pct": 0.694623,
+            "hit_rate": 0.6,
+            "ci_low": 0.23072,
+            "ci_high": 0.882382,
+            "coverage": 0.833333,
+            "p_vs_50": 0.32736,
+            "mean_abs_pct_error": 0.272052,
+            "pnl_pct": 0.200527,
+            "hold_pct": 0.323706,
             "trades": 3,
             "pnl_by_fee": {
-              "best": 0.570989,
-              "cb_maker": -0.63224,
-              "cb_taker": -1.825834,
-              "robinhood": -1.974358
+              "best": 0.200527,
+              "cb_maker": -0.99827,
+              "cb_taker": -2.187467,
+              "robinhood": -2.335444
             },
             "hold_by_fee": {
-              "best": 0.694623,
-              "cb_maker": 0.291442,
-              "cb_taker": -0.11174,
-              "robinhood": -0.162138
+              "best": 0.323706,
+              "cb_maker": -0.077991,
+              "cb_taker": -0.479687,
+              "robinhood": -0.529899
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": 0.4125,
+                "roi": 0.15942,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": 0.478125,
+                "roi": 0.189591,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": 0.4,
+                "roi": 0.153846,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": 0.425,
+                "roi": 0.165049,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -795,6 +1148,12 @@
                 "cb_maker": -0.307,
                 "cb_taker": -0.708,
                 "robinhood": -0.758
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -813,6 +1172,12 @@
                 "cb_maker": -0.202,
                 "cb_taker": -0.603,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -831,6 +1196,12 @@
                 "cb_maker": -0.384,
                 "cb_taker": -0.784,
                 "robinhood": -0.834
+              },
+              "bet_f": {
+                "kalshi_taker": 0.96,
+                "kalshi_maker": 0.99,
+                "robinhood": 0.96,
+                "polymarket": 0.97
               }
             },
             {
@@ -849,6 +1220,12 @@
                 "cb_maker": -0.448,
                 "cb_taker": -0.848,
                 "robinhood": -0.898
+              },
+              "bet_f": {
+                "kalshi_taker": 0.45,
+                "kalshi_maker": 0.49,
+                "robinhood": 0.44,
+                "polymarket": 0.45
               }
             },
             {
@@ -867,35 +1244,87 @@
                 "cb_maker": 0.291,
                 "cb_taker": -0.112,
                 "robinhood": -0.162
+              },
+              "bet_f": {
+                "kalshi_taker": 0.93,
+                "kalshi_maker": 0.98,
+                "robinhood": 0.92,
+                "polymarket": 0.94
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": 0.201,
+              "hold": 0.324,
+              "pnl_f": {
+                "best": 0.201,
+                "cb_maker": -0.998,
+                "cb_taker": -2.187,
+                "robinhood": -2.335
+              },
+              "hold_f": {
+                "best": 0.324,
+                "cb_maker": -0.078,
+                "cb_taker": -0.48,
+                "robinhood": -0.53
+              },
+              "bet_f": {
+                "kalshi_taker": 0.41,
+                "kalshi_maker": 0.48,
+                "robinhood": 0.4,
+                "polymarket": 0.42
               }
             }
           ]
         },
         "momentum": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 1,
-            "hit_rate": 0.2,
-            "ci_low": 0.036223,
-            "ci_high": 0.624472,
+            "hit_rate": 0.166667,
+            "ci_low": 0.030053,
+            "ci_high": 0.563509,
             "coverage": 1.0,
-            "p_vs_50": 0.910144,
+            "p_vs_50": 0.948765,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.382269,
-            "hold_pct": 0.694623,
-            "trades": 2,
+            "pnl_pct": -0.84847,
+            "hold_pct": 0.323706,
+            "trades": 3,
             "pnl_by_fee": {
-              "best": -0.382269,
-              "cb_maker": -1.178412,
-              "cb_taker": -1.97136,
-              "robinhood": -2.070254
+              "best": -0.84847,
+              "cb_maker": -2.034717,
+              "cb_taker": -3.211465,
+              "robinhood": -3.357892
             },
             "hold_by_fee": {
-              "best": 0.694623,
-              "cb_maker": 0.291442,
-              "cb_taker": -0.11174,
-              "robinhood": -0.162138
+              "best": 0.323706,
+              "cb_maker": -0.077991,
+              "cb_taker": -0.479687,
+              "robinhood": -0.529899
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -2.105,
+                "roi": -0.677939,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -2.02625,
+                "roi": -0.669558,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -2.12,
+                "roi": -0.679487,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -2.09,
+                "roi": -0.676375,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -915,6 +1344,12 @@
                 "cb_maker": -0.307,
                 "cb_taker": -0.708,
                 "robinhood": -0.758
+              },
+              "bet_f": {
+                "kalshi_taker": -0.52,
+                "kalshi_maker": -0.5,
+                "robinhood": -0.52,
+                "polymarket": -0.52
               }
             },
             {
@@ -933,6 +1368,12 @@
                 "cb_maker": -0.202,
                 "cb_taker": -0.603,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": -1.03,
+                "kalshi_maker": -1.01,
+                "robinhood": -1.04,
+                "polymarket": -1.03
               }
             },
             {
@@ -951,6 +1392,12 @@
                 "cb_maker": -0.384,
                 "cb_taker": -0.784,
                 "robinhood": -0.834
+              },
+              "bet_f": {
+                "kalshi_taker": -1.55,
+                "kalshi_maker": -1.51,
+                "robinhood": -1.56,
+                "polymarket": -1.54
               }
             },
             {
@@ -969,6 +1416,12 @@
                 "cb_maker": -0.448,
                 "cb_taker": -0.848,
                 "robinhood": -0.898
+              },
+              "bet_f": {
+                "kalshi_taker": -1.07,
+                "kalshi_maker": -1.02,
+                "robinhood": -1.08,
+                "polymarket": -1.06
               }
             },
             {
@@ -987,35 +1440,87 @@
                 "cb_maker": 0.291,
                 "cb_taker": -0.112,
                 "robinhood": -0.162
+              },
+              "bet_f": {
+                "kalshi_taker": -1.59,
+                "kalshi_maker": -1.52,
+                "robinhood": -1.6,
+                "polymarket": -1.58
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": -0.848,
+              "hold": 0.324,
+              "pnl_f": {
+                "best": -0.848,
+                "cb_maker": -2.035,
+                "cb_taker": -3.211,
+                "robinhood": -3.358
+              },
+              "hold_f": {
+                "best": 0.324,
+                "cb_maker": -0.078,
+                "cb_taker": -0.48,
+                "robinhood": -0.53
+              },
+              "bet_f": {
+                "kalshi_taker": -2.1,
+                "kalshi_maker": -2.03,
+                "robinhood": -2.12,
+                "polymarket": -2.09
               }
             }
           ]
         },
         "coin_flip": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 2,
-            "hit_rate": 0.4,
-            "ci_low": 0.117618,
-            "ci_high": 0.76928,
+            "hit_rate": 0.333333,
+            "ci_low": 0.096769,
+            "ci_high": 0.700012,
             "coverage": 1.0,
-            "p_vs_50": 0.67264,
+            "p_vs_50": 0.792892,
             "mean_abs_pct_error": null,
-            "pnl_pct": -0.358088,
-            "hold_pct": 0.694623,
-            "trades": 4,
+            "pnl_pct": -0.824403,
+            "hold_pct": 0.323706,
+            "trades": 5,
             "pnl_by_fee": {
-              "best": -0.358088,
-              "cb_maker": -1.944395,
-              "cb_taker": -3.511686,
-              "robinhood": -3.706268
+              "best": -0.824403,
+              "cb_maker": -2.794064,
+              "cb_taker": -4.732305,
+              "robinhood": -4.972395
             },
             "hold_by_fee": {
-              "best": 0.694623,
-              "cb_maker": 0.291442,
-              "cb_taker": -0.11174,
-              "robinhood": -0.162138
+              "best": 0.323706,
+              "cb_maker": -0.077991,
+              "cb_taker": -0.479687,
+              "robinhood": -0.529899
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -1.105,
+                "roi": -0.355878,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -1.02625,
+                "roi": -0.339116,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -1.12,
+                "roi": -0.358974,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -1.09,
+                "roi": -0.352751,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -1035,6 +1540,12 @@
                 "cb_maker": -0.307,
                 "cb_taker": -0.708,
                 "robinhood": -0.758
+              },
+              "bet_f": {
+                "kalshi_taker": -0.52,
+                "kalshi_maker": -0.5,
+                "robinhood": -0.52,
+                "polymarket": -0.52
               }
             },
             {
@@ -1053,6 +1564,12 @@
                 "cb_maker": -0.202,
                 "cb_taker": -0.603,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": -0.03,
+                "kalshi_maker": -0.01,
+                "robinhood": -0.04,
+                "polymarket": -0.03
               }
             },
             {
@@ -1071,6 +1588,12 @@
                 "cb_maker": -0.384,
                 "cb_taker": -0.784,
                 "robinhood": -0.834
+              },
+              "bet_f": {
+                "kalshi_taker": 0.45,
+                "kalshi_maker": 0.49,
+                "robinhood": 0.44,
+                "polymarket": 0.45
               }
             },
             {
@@ -1089,6 +1612,12 @@
                 "cb_maker": -0.448,
                 "cb_taker": -0.848,
                 "robinhood": -0.898
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -1107,35 +1636,87 @@
                 "cb_maker": 0.291,
                 "cb_taker": -0.112,
                 "robinhood": -0.162
+              },
+              "bet_f": {
+                "kalshi_taker": -0.59,
+                "kalshi_maker": -0.52,
+                "robinhood": -0.6,
+                "polymarket": -0.58
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": -0.824,
+              "hold": 0.324,
+              "pnl_f": {
+                "best": -0.824,
+                "cb_maker": -2.794,
+                "cb_taker": -4.732,
+                "robinhood": -4.972
+              },
+              "hold_f": {
+                "best": 0.324,
+                "cb_maker": -0.078,
+                "cb_taker": -0.48,
+                "robinhood": -0.53
+              },
+              "bet_f": {
+                "kalshi_taker": -1.1,
+                "kalshi_maker": -1.03,
+                "robinhood": -1.12,
+                "polymarket": -1.09
               }
             }
           ]
         },
         "always_up": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 3,
-            "hit_rate": 0.6,
-            "ci_low": 0.23072,
-            "ci_high": 0.882382,
+            "hit_rate": 0.5,
+            "ci_low": 0.187613,
+            "ci_high": 0.812387,
             "coverage": 1.0,
-            "p_vs_50": 0.32736,
+            "p_vs_50": 0.5,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.694623,
-            "hold_pct": 0.694623,
+            "pnl_pct": 0.323706,
+            "hold_pct": 0.323706,
             "trades": 1,
             "pnl_by_fee": {
-              "best": 0.694623,
-              "cb_maker": 0.291442,
-              "cb_taker": -0.11174,
-              "robinhood": -0.162138
+              "best": 0.323706,
+              "cb_maker": -0.077991,
+              "cb_taker": -0.479687,
+              "robinhood": -0.529899
             },
             "hold_by_fee": {
-              "best": 0.694623,
-              "cb_maker": 0.291442,
-              "cb_taker": -0.11174,
-              "robinhood": -0.162138
+              "best": 0.323706,
+              "cb_maker": -0.077991,
+              "cb_taker": -0.479687,
+              "robinhood": -0.529899
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -0.105,
+                "roi": -0.033816,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -0.02625,
+                "roi": -0.008674,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -0.12,
+                "roi": -0.038462,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -0.09,
+                "roi": -0.029126,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -1155,6 +1736,12 @@
                 "cb_maker": -0.307,
                 "cb_taker": -0.708,
                 "robinhood": -0.758
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -1173,6 +1760,12 @@
                 "cb_maker": -0.202,
                 "cb_taker": -0.603,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": 0.96,
+                "kalshi_maker": 0.99,
+                "robinhood": 0.96,
+                "polymarket": 0.97
               }
             },
             {
@@ -1191,6 +1784,12 @@
                 "cb_maker": -0.384,
                 "cb_taker": -0.784,
                 "robinhood": -0.834
+              },
+              "bet_f": {
+                "kalshi_taker": 0.45,
+                "kalshi_maker": 0.49,
+                "robinhood": 0.44,
+                "polymarket": 0.45
               }
             },
             {
@@ -1209,6 +1808,12 @@
                 "cb_maker": -0.448,
                 "cb_taker": -0.848,
                 "robinhood": -0.898
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -1227,6 +1832,36 @@
                 "cb_maker": 0.291,
                 "cb_taker": -0.112,
                 "robinhood": -0.162
+              },
+              "bet_f": {
+                "kalshi_taker": 0.41,
+                "kalshi_maker": 0.48,
+                "robinhood": 0.4,
+                "polymarket": 0.42
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": 0.324,
+              "hold": 0.324,
+              "pnl_f": {
+                "best": 0.324,
+                "cb_maker": -0.078,
+                "cb_taker": -0.48,
+                "robinhood": -0.53
+              },
+              "hold_f": {
+                "best": 0.324,
+                "cb_maker": -0.078,
+                "cb_taker": -0.48,
+                "robinhood": -0.53
+              },
+              "bet_f": {
+                "kalshi_taker": -0.1,
+                "kalshi_maker": -0.03,
+                "robinhood": -0.12,
+                "polymarket": -0.09
               }
             }
           ]
@@ -1234,16 +1869,16 @@
       },
       "kronos_vs": {
         "momentum": {
-          "edge_pp": 55.0,
-          "p_value": 0.0251
+          "edge_pp": 43.33,
+          "p_value": 0.0521
         },
         "coin_flip": {
-          "edge_pp": 35.0,
-          "p_value": 0.1279
+          "edge_pp": 26.67,
+          "p_value": 0.1802
         },
         "always_up": {
-          "edge_pp": 15.0,
-          "p_value": 0.3131
+          "edge_pp": 10.0,
+          "p_value": 0.3692
         }
       },
       "calibration": [
@@ -1288,11 +1923,11 @@
           "lo": 0.8,
           "hi": 0.9,
           "stated": 0.8,
-          "calls": 1,
+          "calls": 2,
           "hits": 1,
-          "actual": 1.0,
-          "ci_low": 0.206543,
-          "ci_high": 1.0,
+          "actual": 0.5,
+          "ci_low": 0.094529,
+          "ci_high": 0.905471,
           "verdict": null
         },
         {
@@ -1313,29 +1948,51 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 3,
-            "hit_rate": 0.6,
-            "ci_low": 0.23072,
-            "ci_high": 0.882382,
+            "hit_rate": 0.5,
+            "ci_low": 0.187613,
+            "ci_high": 0.812387,
             "coverage": 1.0,
-            "p_vs_50": 0.32736,
-            "mean_abs_pct_error": 0.27997,
-            "pnl_pct": 0.381764,
-            "hold_pct": 0.827626,
+            "p_vs_50": 0.5,
+            "mean_abs_pct_error": 0.297692,
+            "pnl_pct": 0.023051,
+            "hold_pct": 0.46732,
             "trades": 3,
             "pnl_by_fee": {
-              "best": 0.381764,
-              "cb_maker": -0.819202,
-              "cb_taker": -2.01055,
-              "robinhood": -2.158794
+              "best": 0.023051,
+              "cb_maker": -1.173623,
+              "cb_taker": -2.360714,
+              "robinhood": -2.508428
             },
             "hold_by_fee": {
-              "best": 0.827626,
-              "cb_maker": 0.423912,
-              "cb_taker": 0.020198,
-              "robinhood": -0.030267
+              "best": 0.46732,
+              "cb_maker": 0.065048,
+              "cb_taker": -0.337223,
+              "robinhood": -0.387507
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -0.105,
+                "roi": -0.033816,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -0.02625,
+                "roi": -0.008674,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -0.12,
+                "roi": -0.038462,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -0.09,
+                "roi": -0.029126,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -1355,6 +2012,12 @@
                 "cb_maker": -0.224,
                 "cb_taker": -0.625,
                 "robinhood": -0.675
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -1373,6 +2036,12 @@
                 "cb_maker": 0.065,
                 "cb_taker": -0.337,
                 "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": -0.03,
+                "kalshi_maker": -0.01,
+                "robinhood": -0.04,
+                "polymarket": -0.03
               }
             },
             {
@@ -1391,6 +2060,12 @@
                 "cb_maker": 0.019,
                 "cb_taker": -0.383,
                 "robinhood": -0.434
+              },
+              "bet_f": {
+                "kalshi_taker": 0.45,
+                "kalshi_maker": 0.49,
+                "robinhood": 0.44,
+                "polymarket": 0.45
               }
             },
             {
@@ -1409,6 +2084,12 @@
                 "cb_maker": -0.201,
                 "cb_taker": -0.602,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -1427,35 +2108,87 @@
                 "cb_maker": 0.424,
                 "cb_taker": 0.02,
                 "robinhood": -0.03
+              },
+              "bet_f": {
+                "kalshi_taker": 0.41,
+                "kalshi_maker": 0.48,
+                "robinhood": 0.4,
+                "polymarket": 0.42
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": 0.023,
+              "hold": 0.467,
+              "pnl_f": {
+                "best": 0.023,
+                "cb_maker": -1.174,
+                "cb_taker": -2.361,
+                "robinhood": -2.508
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": -0.1,
+                "kalshi_maker": -0.03,
+                "robinhood": -0.12,
+                "polymarket": -0.09
               }
             }
           ]
         },
         "momentum": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 2,
-            "hit_rate": 0.4,
-            "ci_low": 0.117618,
-            "ci_high": 0.76928,
+            "hit_rate": 0.333333,
+            "ci_low": 0.096769,
+            "ci_high": 0.700012,
             "coverage": 1.0,
-            "p_vs_50": 0.67264,
+            "p_vs_50": 0.792892,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.0,
-            "hold_pct": 0.827626,
-            "trades": 0,
+            "pnl_pct": -0.456991,
+            "hold_pct": 0.46732,
+            "trades": 1,
             "pnl_by_fee": {
-              "best": 0.0,
-              "cb_maker": 0.0,
-              "cb_taker": 0.0,
-              "robinhood": 0.0
+              "best": -0.456991,
+              "cb_maker": -0.855562,
+              "cb_taker": -1.254133,
+              "robinhood": -1.303954
             },
             "hold_by_fee": {
-              "best": 0.827626,
-              "cb_maker": 0.423912,
-              "cb_taker": 0.020198,
-              "robinhood": -0.030267
+              "best": 0.46732,
+              "cb_maker": 0.065048,
+              "cb_taker": -0.337223,
+              "robinhood": -0.387507
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -1.105,
+                "roi": -0.355878,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -1.02625,
+                "roi": -0.339116,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -1.12,
+                "roi": -0.358974,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -1.09,
+                "roi": -0.352751,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -1475,6 +2208,12 @@
                 "cb_maker": -0.224,
                 "cb_taker": -0.625,
                 "robinhood": -0.675
+              },
+              "bet_f": {
+                "kalshi_taker": -0.52,
+                "kalshi_maker": -0.5,
+                "robinhood": -0.52,
+                "polymarket": -0.52
               }
             },
             {
@@ -1493,6 +2232,12 @@
                 "cb_maker": 0.065,
                 "cb_taker": -0.337,
                 "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": -1.03,
+                "kalshi_maker": -1.01,
+                "robinhood": -1.04,
+                "polymarket": -1.03
               }
             },
             {
@@ -1511,6 +2256,12 @@
                 "cb_maker": 0.019,
                 "cb_taker": -0.383,
                 "robinhood": -0.434
+              },
+              "bet_f": {
+                "kalshi_taker": -0.55,
+                "kalshi_maker": -0.51,
+                "robinhood": -0.56,
+                "polymarket": -0.55
               }
             },
             {
@@ -1529,6 +2280,12 @@
                 "cb_maker": -0.201,
                 "cb_taker": -0.602,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -1547,35 +2304,87 @@
                 "cb_maker": 0.424,
                 "cb_taker": 0.02,
                 "robinhood": -0.03
+              },
+              "bet_f": {
+                "kalshi_taker": -0.59,
+                "kalshi_maker": -0.52,
+                "robinhood": -0.6,
+                "polymarket": -0.58
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": -0.457,
+              "hold": 0.467,
+              "pnl_f": {
+                "best": -0.457,
+                "cb_maker": -0.856,
+                "cb_taker": -1.254,
+                "robinhood": -1.304
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": -1.1,
+                "kalshi_maker": -1.03,
+                "robinhood": -1.12,
+                "polymarket": -1.09
               }
             }
           ]
         },
         "coin_flip": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 4,
-            "hit_rate": 0.8,
-            "ci_low": 0.375528,
-            "ci_high": 0.963777,
+            "hit_rate": 0.666667,
+            "ci_low": 0.299988,
+            "ci_high": 0.903231,
             "coverage": 1.0,
-            "p_vs_50": 0.089856,
+            "p_vs_50": 0.207108,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.366853,
-            "hold_pct": 0.827626,
-            "trades": 2,
+            "pnl_pct": -0.091815,
+            "hold_pct": 0.46732,
+            "trades": 3,
             "pnl_by_fee": {
-              "best": 0.366853,
-              "cb_maker": -0.435277,
-              "cb_taker": -1.234188,
-              "robinhood": -1.333826
+              "best": -0.091815,
+              "cb_maker": -1.287115,
+              "cb_taker": -2.472842,
+              "robinhood": -2.620387
             },
             "hold_by_fee": {
-              "best": 0.827626,
-              "cb_maker": 0.423912,
-              "cb_taker": 0.020198,
-              "robinhood": -0.030267
+              "best": 0.46732,
+              "cb_maker": 0.065048,
+              "cb_taker": -0.337223,
+              "robinhood": -0.387507
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": 0.895,
+                "roi": 0.288245,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": 0.97375,
+                "roi": 0.321768,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": 0.88,
+                "roi": 0.282051,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": 0.91,
+                "roi": 0.294498,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -1595,6 +2404,12 @@
                 "cb_maker": -0.224,
                 "cb_taker": -0.625,
                 "robinhood": -0.675
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -1613,6 +2428,12 @@
                 "cb_maker": 0.065,
                 "cb_taker": -0.337,
                 "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": 0.96,
+                "kalshi_maker": 0.99,
+                "robinhood": 0.96,
+                "polymarket": 0.97
               }
             },
             {
@@ -1631,6 +2452,12 @@
                 "cb_maker": 0.019,
                 "cb_taker": -0.383,
                 "robinhood": -0.434
+              },
+              "bet_f": {
+                "kalshi_taker": 1.45,
+                "kalshi_maker": 1.49,
+                "robinhood": 1.44,
+                "polymarket": 1.46
               }
             },
             {
@@ -1649,6 +2476,12 @@
                 "cb_maker": -0.201,
                 "cb_taker": -0.602,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": 1.93,
+                "kalshi_maker": 1.98,
+                "robinhood": 1.92,
+                "polymarket": 1.94
               }
             },
             {
@@ -1667,35 +2500,87 @@
                 "cb_maker": 0.424,
                 "cb_taker": 0.02,
                 "robinhood": -0.03
+              },
+              "bet_f": {
+                "kalshi_taker": 1.41,
+                "kalshi_maker": 1.48,
+                "robinhood": 1.4,
+                "polymarket": 1.42
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": -0.092,
+              "hold": 0.467,
+              "pnl_f": {
+                "best": -0.092,
+                "cb_maker": -1.287,
+                "cb_taker": -2.473,
+                "robinhood": -2.62
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": 0.9,
+                "kalshi_maker": 0.97,
+                "robinhood": 0.88,
+                "polymarket": 0.91
               }
             }
           ]
         },
         "always_up": {
           "summary": {
-            "candles": 5,
-            "calls": 5,
+            "candles": 6,
+            "calls": 6,
             "hits": 3,
-            "hit_rate": 0.6,
-            "ci_low": 0.23072,
-            "ci_high": 0.882382,
+            "hit_rate": 0.5,
+            "ci_low": 0.187613,
+            "ci_high": 0.812387,
             "coverage": 1.0,
-            "p_vs_50": 0.32736,
+            "p_vs_50": 0.5,
             "mean_abs_pct_error": null,
-            "pnl_pct": 0.827626,
-            "hold_pct": 0.827626,
+            "pnl_pct": 0.46732,
+            "hold_pct": 0.46732,
             "trades": 1,
             "pnl_by_fee": {
-              "best": 0.827626,
-              "cb_maker": 0.423912,
-              "cb_taker": 0.020198,
-              "robinhood": -0.030267
+              "best": 0.46732,
+              "cb_maker": 0.065048,
+              "cb_taker": -0.337223,
+              "robinhood": -0.387507
             },
             "hold_by_fee": {
-              "best": 0.827626,
-              "cb_maker": 0.423912,
-              "cb_taker": 0.020198,
-              "robinhood": -0.030267
+              "best": 0.46732,
+              "cb_maker": 0.065048,
+              "cb_taker": -0.337223,
+              "robinhood": -0.387507
+            },
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -0.105,
+                "roi": -0.033816,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -0.02625,
+                "roi": -0.008674,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -0.12,
+                "roi": -0.038462,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -0.09,
+                "roi": -0.029126,
+                "breakeven": 0.515
+              }
             }
           },
           "rolling": [
@@ -1715,6 +2600,12 @@
                 "cb_maker": -0.224,
                 "cb_taker": -0.625,
                 "robinhood": -0.675
+              },
+              "bet_f": {
+                "kalshi_taker": 0.48,
+                "kalshi_maker": 0.5,
+                "robinhood": 0.48,
+                "polymarket": 0.48
               }
             },
             {
@@ -1733,6 +2624,12 @@
                 "cb_maker": 0.065,
                 "cb_taker": -0.337,
                 "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": 0.96,
+                "kalshi_maker": 0.99,
+                "robinhood": 0.96,
+                "polymarket": 0.97
               }
             },
             {
@@ -1751,6 +2648,12 @@
                 "cb_maker": 0.019,
                 "cb_taker": -0.383,
                 "robinhood": -0.434
+              },
+              "bet_f": {
+                "kalshi_taker": 0.45,
+                "kalshi_maker": 0.49,
+                "robinhood": 0.44,
+                "polymarket": 0.45
               }
             },
             {
@@ -1769,6 +2672,12 @@
                 "cb_maker": -0.201,
                 "cb_taker": -0.602,
                 "robinhood": -0.653
+              },
+              "bet_f": {
+                "kalshi_taker": -0.07,
+                "kalshi_maker": -0.02,
+                "robinhood": -0.08,
+                "polymarket": -0.06
               }
             },
             {
@@ -1787,6 +2696,36 @@
                 "cb_maker": 0.424,
                 "cb_taker": 0.02,
                 "robinhood": -0.03
+              },
+              "bet_f": {
+                "kalshi_taker": 0.41,
+                "kalshi_maker": 0.48,
+                "robinhood": 0.4,
+                "polymarket": 0.42
+              }
+            },
+            {
+              "t": 1794253500,
+              "hit": null,
+              "pnl": 0.467,
+              "hold": 0.467,
+              "pnl_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "hold_f": {
+                "best": 0.467,
+                "cb_maker": 0.065,
+                "cb_taker": -0.337,
+                "robinhood": -0.388
+              },
+              "bet_f": {
+                "kalshi_taker": -0.1,
+                "kalshi_maker": -0.03,
+                "robinhood": -0.12,
+                "polymarket": -0.09
               }
             }
           ]
@@ -1794,12 +2733,12 @@
       },
       "kronos_vs": {
         "momentum": {
-          "edge_pp": 20.0,
-          "p_value": 0.2593
+          "edge_pp": 16.67,
+          "p_value": 0.2762
         },
         "coin_flip": {
-          "edge_pp": -20.0,
-          "p_value": 0.7602
+          "edge_pp": -16.67,
+          "p_value": 0.7238
         },
         "always_up": {
           "edge_pp": 0.0,
@@ -1823,12 +2762,12 @@
           "bin": "60-70%",
           "lo": 0.6,
           "hi": 0.7,
-          "stated": 0.65,
-          "calls": 0,
+          "stated": 0.6,
+          "calls": 1,
           "hits": 0,
-          "actual": null,
-          "ci_low": null,
-          "ci_high": null,
+          "actual": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.793457,
           "verdict": null
         },
         {
@@ -1873,73 +2812,161 @@
       "models": {
         "kronos": {
           "summary": {
-            "candles": 15,
-            "calls": 14,
+            "candles": 18,
+            "calls": 17,
             "hits": 8,
-            "hit_rate": 0.571429,
-            "ci_low": 0.325903,
-            "ci_high": 0.786195,
-            "coverage": 0.933333,
-            "p_vs_50": 0.29649,
-            "mean_abs_pct_error": 0.219416
+            "hit_rate": 0.470588,
+            "ci_low": 0.261648,
+            "ci_high": 0.690371,
+            "coverage": 0.944444,
+            "p_vs_50": 0.595817,
+            "mean_abs_pct_error": 0.247864,
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -0.7975,
+                "roi": -0.090651,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -0.574375,
+                "roi": -0.066987,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -0.84,
+                "roi": -0.095023,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -0.755,
+                "roi": -0.086236,
+                "breakeven": 0.515
+              }
+            }
           },
           "rolling": []
         },
         "momentum": {
           "summary": {
-            "candles": 15,
-            "calls": 15,
+            "candles": 18,
+            "calls": 18,
             "hits": 5,
-            "hit_rate": 0.333333,
-            "ci_low": 0.151761,
-            "ci_high": 0.582869,
+            "hit_rate": 0.277778,
+            "ci_low": 0.124996,
+            "ci_high": 0.508731,
             "coverage": 1.0,
-            "p_vs_50": 0.901647,
-            "mean_abs_pct_error": null
+            "p_vs_50": 0.970327,
+            "mean_abs_pct_error": null,
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -4.315,
+                "roi": -0.463231,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -4.07875,
+                "roi": -0.449263,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -4.36,
+                "roi": -0.465812,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -4.27,
+                "roi": -0.460626,
+                "breakeven": 0.515
+              }
+            }
           },
           "rolling": []
         },
         "coin_flip": {
           "summary": {
-            "candles": 15,
-            "calls": 15,
-            "hits": 11,
-            "hit_rate": 0.733333,
-            "ci_low": 0.480491,
-            "ci_high": 0.891027,
+            "candles": 18,
+            "calls": 18,
+            "hits": 12,
+            "hit_rate": 0.666667,
+            "ci_low": 0.437491,
+            "ci_high": 0.837214,
             "coverage": 1.0,
-            "p_vs_50": 0.035351,
-            "mean_abs_pct_error": null
+            "p_vs_50": 0.07865,
+            "mean_abs_pct_error": null,
+            "bets": {
+              "kalshi_taker": {
+                "pnl": 2.685,
+                "roi": 0.288245,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": 2.92125,
+                "roi": 0.321768,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": 2.64,
+                "roi": 0.282051,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": 2.73,
+                "roi": 0.294498,
+                "breakeven": 0.515
+              }
+            }
           },
           "rolling": []
         },
         "always_up": {
           "summary": {
-            "candles": 15,
-            "calls": 15,
+            "candles": 18,
+            "calls": 18,
             "hits": 8,
-            "hit_rate": 0.533333,
-            "ci_low": 0.301166,
-            "ci_high": 0.751908,
+            "hit_rate": 0.444444,
+            "ci_low": 0.245592,
+            "ci_high": 0.662839,
             "coverage": 1.0,
-            "p_vs_50": 0.398127,
-            "mean_abs_pct_error": null
+            "p_vs_50": 0.681324,
+            "mean_abs_pct_error": null,
+            "bets": {
+              "kalshi_taker": {
+                "pnl": -1.315,
+                "roi": -0.14117,
+                "breakeven": 0.5175
+              },
+              "kalshi_maker": {
+                "pnl": -1.07875,
+                "roi": -0.118821,
+                "breakeven": 0.504375
+              },
+              "robinhood": {
+                "pnl": -1.36,
+                "roi": -0.145299,
+                "breakeven": 0.52
+              },
+              "polymarket": {
+                "pnl": -1.27,
+                "roi": -0.137001,
+                "breakeven": 0.515
+              }
+            }
           },
           "rolling": []
         }
       },
       "kronos_vs": {
         "momentum": {
-          "edge_pp": 23.81,
-          "p_value": 0.0926
+          "edge_pp": 19.28,
+          "p_value": 0.115
         },
         "coin_flip": {
-          "edge_pp": -16.19,
-          "p_value": 0.8229
+          "edge_pp": -19.61,
+          "p_value": 0.8836
         },
         "always_up": {
-          "edge_pp": 3.81,
-          "p_value": 0.4183
+          "edge_pp": 2.61,
+          "p_value": 0.4383
         }
       },
       "calibration": [
@@ -1960,11 +2987,11 @@
           "lo": 0.6,
           "hi": 0.7,
           "stated": 0.6,
-          "calls": 2,
+          "calls": 4,
           "hits": 2,
-          "actual": 1.0,
-          "ci_low": 0.342372,
-          "ci_high": 1.0,
+          "actual": 0.5,
+          "ci_low": 0.150036,
+          "ci_high": 0.849964,
           "verdict": null
         },
         {
@@ -1984,11 +3011,11 @@
           "lo": 0.8,
           "hi": 0.9,
           "stated": 0.8,
-          "calls": 4,
+          "calls": 5,
           "hits": 1,
-          "actual": 0.25,
-          "ci_low": 0.045586,
-          "ci_high": 0.699364,
+          "actual": 0.2,
+          "ci_low": 0.036223,
+          "ci_high": 0.624472,
           "verdict": null
         },
         {
@@ -2009,15 +3036,32 @@
   "recent": [
     {
       "coin": "BTC-USD",
-      "t": 1794253500,
-      "last_close": 74932.5,
+      "t": 1794254400,
+      "last_close": 74778.99,
       "actual_close": null,
-      "pred_close": 74947.210938,
-      "kronos": "up",
-      "conf": 0.6,
+      "pred_close": 74791.359375,
+      "kronos": "skip",
+      "conf": 0.5,
       "kronos_correct": null,
       "pct_error": null,
-      "momentum": "up",
+      "momentum": "down",
+      "momentum_correct": null,
+      "coin_flip": "up",
+      "coin_flip_correct": null,
+      "always_up": "up",
+      "always_up_correct": null
+    },
+    {
+      "coin": "ETH-USD",
+      "t": 1794254400,
+      "last_close": 2125.93,
+      "actual_close": null,
+      "pred_close": 2128.183594,
+      "kronos": "up",
+      "conf": 0.9,
+      "kronos_correct": null,
+      "pct_error": null,
+      "momentum": "down",
       "momentum_correct": null,
       "coin_flip": "down",
       "coin_flip_correct": null,
@@ -2025,38 +3069,72 @@
       "always_up_correct": null
     },
     {
-      "coin": "ETH-USD",
-      "t": 1794253500,
-      "last_close": 2133.79,
+      "coin": "SOL-USD",
+      "t": 1794254400,
+      "last_close": 86.44,
       "actual_close": null,
-      "pred_close": 2137.814941,
+      "pred_close": 86.478317,
       "kronos": "up",
-      "conf": 0.8,
+      "conf": 0.6,
       "kronos_correct": null,
       "pct_error": null,
-      "momentum": "up",
+      "momentum": "down",
       "momentum_correct": null,
-      "coin_flip": "up",
+      "coin_flip": "down",
       "coin_flip_correct": null,
       "always_up": "up",
       "always_up_correct": null
     },
     {
+      "coin": "BTC-USD",
+      "t": 1794253500,
+      "last_close": 74932.5,
+      "actual_close": 74778.99,
+      "pred_close": 74947.210938,
+      "kronos": "up",
+      "conf": 0.6,
+      "kronos_correct": 0,
+      "pct_error": 0.22496,
+      "momentum": "up",
+      "momentum_correct": 0,
+      "coin_flip": "down",
+      "coin_flip_correct": 1,
+      "always_up": "up",
+      "always_up_correct": 0
+    },
+    {
+      "coin": "ETH-USD",
+      "t": 1794253500,
+      "last_close": 2133.79,
+      "actual_close": 2125.93,
+      "pred_close": 2137.814941,
+      "kronos": "up",
+      "conf": 0.8,
+      "kronos_correct": 0,
+      "pct_error": 0.55905,
+      "momentum": "up",
+      "momentum_correct": 0,
+      "coin_flip": "up",
+      "coin_flip_correct": 0,
+      "always_up": "up",
+      "always_up_correct": 0
+    },
+    {
       "coin": "SOL-USD",
       "t": 1794253500,
       "last_close": 86.75,
-      "actual_close": null,
+      "actual_close": 86.44,
       "pred_close": 86.773918,
       "kronos": "up",
       "conf": 0.6,
-      "kronos_correct": null,
-      "pct_error": null,
+      "kronos_correct": 0,
+      "pct_error": 0.3863,
       "momentum": "up",
-      "momentum_correct": null,
+      "momentum_correct": 0,
       "coin_flip": "up",
-      "coin_flip_correct": null,
+      "coin_flip_correct": 0,
       "always_up": "up",
-      "always_up_correct": null
+      "always_up_correct": 0
     },
     {
       "coin": "BTC-USD",
@@ -2313,5 +3391,170 @@
       "always_up": "up",
       "always_up_correct": 1
     }
-  ]
+  ],
+  "kalshi": {
+    "windows": 3,
+    "settled": 0,
+    "coins": {},
+    "recent": [],
+    "curve": [],
+    "now": {
+      "BTC-USD": {
+        "t": 1794254400,
+        "yes_bid": 0.63,
+        "yes_ask": 0.64,
+        "secs": 80
+      },
+      "ETH-USD": {
+        "t": 1794254400,
+        "yes_bid": 0.6,
+        "yes_ask": 0.61,
+        "secs": 80
+      },
+      "SOL-USD": {
+        "t": 1794254400,
+        "yes_bid": 0.47,
+        "yes_ask": 0.49,
+        "secs": 80
+      }
+    }
+  },
+  "coin_compare": {
+    "rows": [
+      {
+        "coin": "BTC-USD",
+        "calls": 6,
+        "hit_rate": 0.333333,
+        "ci_low": 0.096769,
+        "ci_high": 0.700012,
+        "p_vs_50": 0.792892,
+        "vs_momentum": {
+          "edge_pp": 0.0,
+          "p_value": 0.5
+        },
+        "vs_coin_flip": {
+          "edge_pp": -66.67,
+          "p_value": 0.9997
+        },
+        "pnl_by_fee": {
+          "best": -0.504805,
+          "cb_maker": -1.695163,
+          "cb_taker": -2.87599,
+          "robinhood": -3.022924
+        },
+        "bets": {
+          "kalshi_taker": {
+            "pnl": -1.105,
+            "roi": -0.355878,
+            "breakeven": 0.5175
+          },
+          "kalshi_maker": {
+            "pnl": -1.02625,
+            "roi": -0.339116,
+            "breakeven": 0.504375
+          },
+          "robinhood": {
+            "pnl": -1.12,
+            "roi": -0.358974,
+            "breakeven": 0.52
+          },
+          "polymarket": {
+            "pnl": -1.09,
+            "roi": -0.352751,
+            "breakeven": 0.515
+          }
+        }
+      },
+      {
+        "coin": "ETH-USD",
+        "calls": 5,
+        "hit_rate": 0.6,
+        "ci_low": 0.23072,
+        "ci_high": 0.882382,
+        "p_vs_50": 0.32736,
+        "vs_momentum": {
+          "edge_pp": 43.33,
+          "p_value": 0.0521
+        },
+        "vs_coin_flip": {
+          "edge_pp": 26.67,
+          "p_value": 0.1802
+        },
+        "pnl_by_fee": {
+          "best": 0.200527,
+          "cb_maker": -0.99827,
+          "cb_taker": -2.187467,
+          "robinhood": -2.335444
+        },
+        "bets": {
+          "kalshi_taker": {
+            "pnl": 0.4125,
+            "roi": 0.15942,
+            "breakeven": 0.5175
+          },
+          "kalshi_maker": {
+            "pnl": 0.478125,
+            "roi": 0.189591,
+            "breakeven": 0.504375
+          },
+          "robinhood": {
+            "pnl": 0.4,
+            "roi": 0.153846,
+            "breakeven": 0.52
+          },
+          "polymarket": {
+            "pnl": 0.425,
+            "roi": 0.165049,
+            "breakeven": 0.515
+          }
+        }
+      },
+      {
+        "coin": "SOL-USD",
+        "calls": 6,
+        "hit_rate": 0.5,
+        "ci_low": 0.187613,
+        "ci_high": 0.812387,
+        "p_vs_50": 0.5,
+        "vs_momentum": {
+          "edge_pp": 16.67,
+          "p_value": 0.2762
+        },
+        "vs_coin_flip": {
+          "edge_pp": -16.67,
+          "p_value": 0.7238
+        },
+        "pnl_by_fee": {
+          "best": 0.023051,
+          "cb_maker": -1.173623,
+          "cb_taker": -2.360714,
+          "robinhood": -2.508428
+        },
+        "bets": {
+          "kalshi_taker": {
+            "pnl": -0.105,
+            "roi": -0.033816,
+            "breakeven": 0.5175
+          },
+          "kalshi_maker": {
+            "pnl": -0.02625,
+            "roi": -0.008674,
+            "breakeven": 0.504375
+          },
+          "robinhood": {
+            "pnl": -0.12,
+            "roi": -0.038462,
+            "breakeven": 0.52
+          },
+          "polymarket": {
+            "pnl": -0.09,
+            "roi": -0.029126,
+            "breakeven": 0.515
+          }
+        }
+      }
+    ],
+    "p_differ": 0.666761,
+    "best": "ETH-USD"
+  }
 }
