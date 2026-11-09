@@ -311,19 +311,30 @@ async function render() {
 
 /* ------------------------------------------------------------ live prices (fetched by your browser straight from Coinbase) */
 const PRICE_COINS = ["BTC-USD", "ETH-USD", "SOL-USD"];
-const RANGES = { "6H": 24, "1D": 96, "3D": 288 };
-const price = { range: "1D", timers: [], charts: {}, candles: {}, last: {} };
+// g = candle size in seconds, n = how many candles. LIVE streams every trade instead.
+const RANGES = {
+  LIVE: { live: true, span: 300, label: "past 5 min" },
+  "1H": { g: 60, n: 60, label: "past hour" },
+  "4H": { g: 60, n: 240, label: "past 4 hours" },
+  "1D": { g: 900, n: 96, label: "past day" },
+  "3D": { g: 900, n: 288, label: "past 3 days" },
+  "1W": { g: 3600, n: 168, label: "past week" },
+};
+const CB = "https://api.exchange.coinbase.com";
+const price = { range: "1D", timers: [], charts: {}, candles: {}, last: {}, ticks: {}, ws: null, drawQueued: false };
 try { price.range = localStorage.getItem("candlelab-range") || "1D"; } catch {}
 if (!RANGES[price.range]) price.range = "1D";
 
 const fmtPrice = (p) => p.toLocaleString([], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const hhmm = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const hhmmss = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
 
 function priceSection() {
   const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
-  return `<h2>Live prices · 15-minute candles</h2>
+  return `<h2>Live prices</h2>
   <div class="chips range" role="group" aria-label="Chart range">${Object.keys(RANGES).map((r) =>
-    `<button class="chip" data-range="${r}" aria-pressed="${price.range === r}">${r}</button>`).join("")}</div>
+    `<button class="chip${r === "LIVE" ? " livechip" : ""}" data-range="${r}" aria-pressed="${price.range === r}">${r === "LIVE" ? '<span class="dotlive"></span>LIVE' : r}</button>`).join("")}
+    <span class="rangeinfo" id="rangeinfo"></span></div>
   <div class="pgrid${coins.length === 1 ? " one" : ""}">${coins.map((c) => `
     <div class="pcard" id="p-${c}">
       <div class="ph">
@@ -332,8 +343,9 @@ function priceSection() {
       </div>
       <div class="pchart"><canvas></canvas></div>
     </div>`).join("")}</div>
-  <p class="note">Prices come straight from Coinbase's free public feed and refresh every 15 seconds (Robinhood's price can differ by a few dollars).
-  ▲/▼ marks are Kronos's calls: <span class="pos">green = right</span>, <span class="neg">red = wrong</span>. The dashed blue line is Kronos's forecast for the candle forming right now.</p>`;
+  <p class="note">Prices come straight from Coinbase's free public feed (Robinhood's price can differ by a few dollars).
+  <b>LIVE</b> streams every trade second by second; 1H/4H use 1-minute candles, 1D/3D 15-minute candles, 1W hourly candles.
+  ▲/▼ marks are Kronos's 15-minute calls: <span class="pos">green = right</span>, <span class="neg">red = wrong</span>. The dashed blue line is Kronos's forecast for the candle forming right now.</p>`;
 }
 
 async function getJSON(url) {
@@ -343,14 +355,51 @@ async function getJSON(url) {
 }
 
 async function loadCandles(coin) {
-  const end = Math.floor(Date.now() / 1000), start = end - RANGES[price.range] * 900;
+  const R = RANGES[price.range];
+  if (R.live) return;
+  const end = Math.floor(Date.now() / 1000), start = end - R.n * R.g;
   const iso = (t) => new Date(t * 1000).toISOString();
-  const rows = await getJSON(`https://api.exchange.coinbase.com/products/${coin}/candles?granularity=900&start=${iso(start)}&end=${iso(end)}`);
-  price.candles[coin] = rows.map((x) => ({ t: x[0], c: +x[4] })).sort((a, b) => a.t - b.t);
+  const rows = await getJSON(`${CB}/products/${coin}/candles?granularity=${R.g}&start=${iso(start)}&end=${iso(end)}`);
+  price.candles[coin] = { g: R.g, rows: rows.map((x) => ({ t: x[0], c: +x[4] })).sort((a, b) => a.t - b.t) };
 }
 
 async function loadTicker(coin) {
-  price.last[coin] = +(await getJSON(`https://api.exchange.coinbase.com/products/${coin}/ticker`)).price;
+  price.last[coin] = +(await getJSON(`${CB}/products/${coin}/ticker`)).price;
+}
+
+/* LIVE: keep the last trade price of each second for the past 5 minutes */
+function addTick(coin, ms, p) {
+  const m = (price.ticks[coin] ||= new Map());
+  m.set(Math.floor(ms / 1000), p);
+  const cutoff = Math.floor(Date.now() / 1000) - RANGES.LIVE.span - 5;
+  for (const k of m.keys()) { if (k < cutoff) m.delete(k); else break; }
+  price.last[coin] = p;
+}
+
+async function seedTicks(coin) {
+  const trades = await getJSON(`${CB}/products/${coin}/trades?limit=1000`);
+  price.ticks[coin] = new Map();
+  trades.slice().reverse().forEach((t) => addTick(coin, Date.parse(t.time), +t.price));
+}
+
+function openStream(coins) {
+  closeStream();
+  const ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
+  price.ws = ws;
+  ws.onopen = () => ws.send(JSON.stringify({ type: "subscribe", product_ids: coins, channels: ["ticker"] }));
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type !== "ticker" || !m.price) return;
+    addTick(m.product_id, m.time ? Date.parse(m.time) : Date.now(), +m.price);
+    queueDraw(coins);
+  };
+  ws.onclose = () => { if (price.ws === ws && RANGES[price.range].live) setTimeout(() => price.ws === ws && openStream(coins), 3000); };
+}
+function closeStream() { const ws = price.ws; price.ws = null; if (ws) try { ws.close(); } catch {} }
+function queueDraw(coins) {  // at most ~4 redraws a second, however busy the market
+  if (price.drawQueued) return;
+  price.drawQueued = true;
+  setTimeout(() => { price.drawQueued = false; coins.forEach(drawPrice); }, 250);
 }
 
 function openCall(coin) {
@@ -369,20 +418,36 @@ function updateCall(coin) {
     <div class="sub">${hhmm(m.t * 1000)}–${hhmm((m.t + 900) * 1000)} candle · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>`;
 }
 
+function seriesFor(coin) {
+  const R = RANGES[price.range], nowMs = Date.now();
+  if (R.live) {
+    const m = price.ticks[coin];
+    if (!m) return [];
+    const from = Math.floor(nowMs / 1000) - R.span;
+    return [...m.entries()].filter(([s]) => s >= from).map(([s, p]) => ({ x: s * 1000, y: p }));
+  }
+  const cs = price.candles[coin];
+  if (!cs || cs.g !== R.g) return [];
+  const pts = cs.rows.filter((x) => (x.t + cs.g) * 1000 <= nowMs).map((x) => ({ x: (x.t + cs.g) * 1000, y: x.c }));
+  if (price.last[coin]) pts.push({ x: nowMs, y: price.last[coin] });
+  return pts;
+}
+
 function drawPrice(coin) {
   const card = document.getElementById("p-" + coin);
-  const cs = price.candles[coin];
-  if (!card || !cs) return;
-  const nowS = Date.now() / 1000;
-  const pts = cs.filter((x) => x.t + 900 <= nowS).map((x) => ({ x: (x.t + 900) * 1000, y: x.c }));
-  if (price.last[coin]) pts.push({ x: Date.now(), y: price.last[coin] });
-  if (pts.length < 2) return;
+  if (!card) return;
+  const R = RANGES[price.range];
+  const pts = seriesFor(coin);
+  if (pts.length < 2) {
+    if (price.last[coin]) card.querySelector("[data-f=price]").textContent = "$" + fmtPrice(price.last[coin]);
+    return;
+  }
   const first = pts[0].y, last = pts[pts.length - 1].y, up = last >= first;
   const col = css(up ? "--good" : "--bad");
 
   card.querySelector("[data-f=price]").textContent = "$" + fmtPrice(last);
   const chg = last - first;
-  card.querySelector("[data-f=chg]").innerHTML = `<span class="${up ? "pos" : "neg"}">${up ? "▲" : "▼"} $${fmtPrice(Math.abs(chg))} (${signed((chg / first) * 100)})</span> <span class="muted">past ${price.range}</span>`;
+  card.querySelector("[data-f=chg]").innerHTML = `<span class="${up ? "pos" : "neg"}">${up ? "▲" : "▼"} $${fmtPrice(Math.abs(chg))} (${signed((chg / first) * 100, chg !== 0 && Math.abs(chg / first) < 0.001 ? 3 : 2)})</span> <span class="muted">${R.label}</span>`;
   card.style.setProperty("--pc", col);
 
   const minX = pts[0].x;
@@ -390,7 +455,9 @@ function drawPrice(coin) {
     .filter((m) => m.actual != null && m.dir !== "skip" && (m.t + 900) * 1000 >= minX)
     .map((m) => ({ x: (m.t + 900) * 1000, y: m.actual, m }));
   const oc = openCall(coin);
-  const fc = oc && oc.pred != null ? [{ x: oc.t * 1000, y: oc.last }, { x: (oc.t + 900) * 1000, y: oc.pred }] : [];
+  // Forecast line: from the candle's open to Kronos's predicted close. In LIVE it starts at the left edge.
+  const fc = oc && oc.pred != null && !R.live ? [{ x: oc.t * 1000, y: oc.last }, { x: (oc.t + 900) * 1000, y: oc.pred }] : [];
+  const target = oc && oc.pred != null && R.live ? [{ x: minX, y: oc.pred }, { x: pts[pts.length - 1].x, y: oc.pred }] : [];
 
   const fill = (ctx) => {
     const { chart } = ctx, area = chart.chartArea;
@@ -400,35 +467,45 @@ function drawPrice(coin) {
     return g;
   };
   const datasets = [
-    { label: "Price", data: pts, borderColor: col, backgroundColor: fill, fill: "start", borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.2, order: 3 },
+    { label: "Price", data: pts, borderColor: col, backgroundColor: fill, fill: "start", borderWidth: 2, pointRadius: 0, pointHoverRadius: 4,
+      tension: R.live ? 0 : 0.2, stepped: R.live ? "before" : false, order: 3 },
     { label: "Kronos call", data: marks, showLine: false, order: 1, pointStyle: "triangle", pointRadius: 5, pointHoverRadius: 7,
       pointRotation: (c) => (c.raw?.m.dir === "down" ? 180 : 0),
       pointBackgroundColor: (c) => (c.raw?.m.ok ? css("--good") : css("--bad")), pointBorderColor: "#0A0A0B", pointBorderWidth: 1 },
     { label: "Kronos forecast", data: fc, borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), borderDash: [5, 4],
       borderWidth: 2, pointRadius: [0, 4], order: 2 },
+    { label: "Kronos target", data: target, borderColor: css("--s-kronos"), borderDash: [2, 4], borderWidth: 1.5, pointRadius: 0, order: 2 },
   ];
 
   const xMin = minX, xMax = Math.max(pts[pts.length - 1].x, fc.length ? fc[1].x : 0);
+  const tick = (v) => R.live ? hhmmss(v) : R.g >= 3600 || price.range === "3D"
+    ? new Date(v).toLocaleDateString([], { weekday: "short" }) + " " + hhmm(v) : hhmm(v);
   let ch = price.charts[coin];
-  if (ch) { ch.data.datasets = datasets; Object.assign(ch.options.scales.x, { min: xMin, max: xMax }); ch.update("none"); return; }
+  if (ch) {
+    ch.data.datasets = datasets;
+    Object.assign(ch.options.scales.x, { min: xMin, max: xMax });
+    ch.options.scales.x.ticks.callback = tick;
+    ch.update("none");
+    return;
+  }
   ch = new Chart(card.querySelector("canvas"), {
     type: "line", data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
       interaction: { mode: "nearest", intersect: false },
       scales: {
-        x: { type: "linear", min: xMin, max: xMax, grid: { display: false }, ticks: { maxTicksLimit: 6, callback: (v) => price.range === "3D"
-          ? new Date(v).toLocaleDateString([], { weekday: "short" }) + " " + hhmm(v) : hhmm(v) } },
+        x: { type: "linear", min: xMin, max: xMax, grid: { display: false }, ticks: { maxTicksLimit: 6, callback: tick } },
         y: { position: "right", grid: { color: "#222428" }, ticks: { maxTicksLimit: 5, callback: (v) => "$" + v.toLocaleString() } },
       },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: {
-          title: (items) => items.length ? new Date(items[0].parsed.x).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "",
+          title: (items) => items.length ? (RANGES[price.range].live ? hhmmss(items[0].parsed.x)
+            : new Date(items[0].parsed.x).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })) : "",
           label: (it) => {
             const m = it.raw?.m;
             if (m) return `Kronos said ${m.dir.toUpperCase()} · ${m.ok ? "✓ right" : "✗ wrong"} · closed $${fmtPrice(m.actual)}`;
-            if (it.dataset.label === "Kronos forecast") return `Kronos forecast: $${fmtPrice(it.parsed.y)}`;
+            if (it.dataset.label === "Kronos forecast" || it.dataset.label === "Kronos target") return `Kronos forecast close: $${fmtPrice(it.parsed.y)}`;
             return `$${fmtPrice(it.parsed.y)}`;
           },
         } },
@@ -439,23 +516,45 @@ function drawPrice(coin) {
   state.charts.push(ch);
 }
 
-function stopPrices() { price.timers.forEach(clearInterval); price.timers = []; price.charts = {}; }
+function stopPrices() {
+  price.timers.forEach(clearInterval); price.timers = [];
+  closeStream();
+  price.charts = {};
+}
 
 async function startPrices() {
   const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
-  document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", async () => {
+  const all = async (fn) => Promise.all(coins.map((c) => fn(c).catch((e) => console.warn(c, e))));
+  const info = (t) => { const el = $("#rangeinfo"); if (el) el.textContent = t; };
+
+  async function startRange() {
+    price.timers.forEach(clearInterval); price.timers = [];
+    closeStream();
+    const R = RANGES[price.range];
+    if (R.live) {
+      info("connecting to live trades…");
+      await all(async (c) => { await seedTicks(c); drawPrice(c); });
+      openStream(coins);
+      info("streaming every trade");
+      price.timers.push(setInterval(() => coins.forEach(drawPrice), 1000));  // keep the window sliding when trading is quiet
+    } else {
+      info("");
+      await all(async (c) => { await Promise.all([loadCandles(c), loadTicker(c)]); drawPrice(c); });
+      price.timers.push(setInterval(() => all(async (c) => { await loadTicker(c); drawPrice(c); }), 15000));
+      price.timers.push(setInterval(() => all(async (c) => { await loadCandles(c); drawPrice(c); }), R.g <= 60 ? 30000 : 60000));
+    }
+    price.timers.push(setInterval(() => coins.forEach(updateCall), 1000));
+  }
+
+  document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => {
+    if (price.range === b.dataset.range) return;
     price.range = b.dataset.range;
     try { localStorage.setItem("candlelab-range", price.range); } catch {}
     document.querySelectorAll("[data-range]").forEach((x) => x.setAttribute("aria-pressed", x === b));
-    await Promise.all(coins.map((c) => loadCandles(c).catch(() => {})));
-    coins.forEach(drawPrice);
+    startRange();
   }));
   coins.forEach(updateCall);
-  const all = async (fn) => Promise.all(coins.map((c) => fn(c).catch((e) => console.warn(c, e))));
-  await all(async (c) => { await Promise.all([loadCandles(c), loadTicker(c)]); drawPrice(c); });
-  price.timers.push(setInterval(() => all(async (c) => { await loadTicker(c); drawPrice(c); }), 15000));
-  price.timers.push(setInterval(() => all(async (c) => { await loadCandles(c); drawPrice(c); }), 60000));
-  price.timers.push(setInterval(() => coins.forEach(updateCall), 1000));
+  await startRange();
 }
 
 /* ------------------------------------------------------------ start */

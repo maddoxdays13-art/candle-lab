@@ -195,3 +195,10 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
 .pgrid.one .pchart { height: 340px; }
 .pgrid.one .pbig { font-size: 38px; }
 @media (max-width: 760px) { .pchart { height: 180px; } .pgrid.one .pchart { height: 260px; } .pbig { font-size: 26px; } }
+.chips.range { align-items: center; }
+.livechip { display: inline-flex; align-items: center; gap: 6px; }
+.dotlive { width: 7px; height: 7px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+.livechip[aria-pressed="true"] .dotlive { animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.rangeinfo { color: var(--muted); font-size: 12px; margin-left: 4px; }
+@media (prefers-reduced-motion: reduce) { .livechip[aria-pressed="true"] .dotlive { animation: none; } }
