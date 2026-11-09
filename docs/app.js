@@ -287,6 +287,8 @@ async function headerStatus() {
   if (mins > STALE_MINUTES) {
     banner.hidden = false;
     banner.textContent = `⚠ The live logger hasn't updated in ${ago(last).replace(" ago", "")}. Check the "Live logger" workflow on GitHub (Actions tab).`;
+  } else {
+    banner.hidden = true;
   }
 }
 
@@ -462,4 +464,23 @@ try { Object.assign(state, JSON.parse(localStorage.getItem("candlelab") || "{}")
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; save(); render(); }));
 headerStatus();
 render();
-setInterval(() => { state.data = {}; headerStatus(); render(); }, 5 * 60 * 1000);
+// Check for new results every minute; redraw only when the logger has published something new.
+async function fetchFresh(name) {
+  const r = await fetch(`data/${name}.json?_=${Date.now()}`);
+  return r.ok ? r.json() : null;
+}
+setInterval(async () => {
+  try {
+    const names = [...new Set(["live", state.tab])];
+    const fresh = await Promise.all(names.map(fetchFresh));
+    let changed = false;
+    names.forEach((n, i) => {
+      if (fresh[i] && fresh[i].updated_at !== state.data[n]?.updated_at) {
+        state.data[n] = fresh[i];
+        if (n === state.tab) changed = true;
+      }
+    });
+    await headerStatus();
+    if (changed) { const y = window.scrollY; await render(); window.scrollTo(0, y); }
+  } catch {}
+}, 60 * 1000);
