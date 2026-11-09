@@ -66,7 +66,7 @@ def make_challengers(champ, cfg, date):
         s = dict(champ)
         changed = {}
         for field in rng.sample(sorted(space), rng.choice([1, 1, 2])):
-            options = [v for v in space[field] if v != champ[field]]
+            options = [v for v in space[field] if v != champ.get(field, False if field == "reversal_only" else None)]
             if field == "context_len":
                 options = [v for v in options if v <= champ["max_context"]]
             if options:

@@ -11,7 +11,28 @@ from .stats import (bet_fee, bet_pnl, calibration, clean_nans, coins_differ, com
                     summarize, wilson)
 from .config import BET_VENUES, FEE_PRESETS
 
-MODELS = ["kronos", "momentum", "coin_flip", "always_up"]
+MODELS = ["kronos", "momentum", "coin_flip", "always_up", "kronos_rev", "snapback"]
+# kronos_rev: only Kronos's reversal calls (it calls the opposite of the last candle); otherwise skip.
+# snapback:   always bet the last candle reverses (the simple rule Kronos's reversals have to beat).
+
+
+def add_derived(bt):
+    """Derived strategies from the logged Kronos and momentum calls (momentum = last candle's direction)."""
+    bt = bt.copy()
+    bt["kronos_rev"] = np.where((bt["kronos"] != 0) & (bt["kronos"] != bt["momentum"]), bt["kronos"], 0)
+    bt["snapback"] = -bt["momentum"]
+    return bt
+
+
+def derived_live_rows(long_df):
+    """Same two strategies for the live log (built from the kronos and momentum rows of each candle)."""
+    k = long_df[long_df["model"] == "kronos"]
+    m = long_df[long_df["model"] == "momentum"][["coin", "ts", "direction"]].rename(columns={"direction": "mom"})
+    j = k.merge(m, on=["coin", "ts"])
+    rev = j.assign(model="kronos_rev", direction=np.where((j["direction"] != 0) & (j["direction"] != j["mom"]), j["direction"], 0),
+                   pct_error=np.nan, conf=np.nan).drop(columns="mom")
+    snap = j.assign(model="snapback", direction=-j["mom"], pct_error=np.nan, conf=np.nan).drop(columns="mom")
+    return pd.concat([long_df, rev, snap], ignore_index=True)
 DIR_NUM = {"up": 1, "down": -1, "skip": 0}
 
 
@@ -66,7 +87,8 @@ def kalshi_section(pred):
     if k.empty:
         return out
     kr = pred[pred["model"] == "kronos"][["coin", "candle_ts", "direction", "confidence", "pred_close"]]
-    m = k.merge(kr, on=["coin", "candle_ts"], how="left")
+    mo = pred[pred["model"] == "momentum"][["coin", "candle_ts", "direction"]].rename(columns={"direction": "mom"})
+    m = k.merge(kr, on=["coin", "candle_ts"], how="left").merge(mo, on=["coin", "candle_ts"], how="left")
     m["p_up"] = np.where(m["direction"] == "up", m["confidence"], np.where(m["direction"] == "down", 1 - m["confidence"], 0.5))
     for c in ["yes_bid", "yes_ask", "no_bid", "no_ask"]:
         m[c] = pd.to_numeric(m[c], errors="coerce")
@@ -91,6 +113,9 @@ def kalshi_section(pred):
         s[f"value_{v}"] = np.where(s["call"] & (s["k_prob"] > s["price"] + bet_fee(v, s["price"]) + 0.02),
                                    s[f"follow_{v}"], 0.0)
     s["value_bet"] = s["call"] & (s["k_prob"] > s["price"] + bet_fee("kalshi_taker", s["price"]) + 0.02)
+    s["rev"] = s["call"] & s["mom"].isin(["up", "down"]) & (s["direction"] != s["mom"])
+    for v in BET_VENUES:
+        s[f"rev_{v}"] = np.where(s["rev"], s[f"follow_{v}"], 0.0)
 
     def stats_for(g):
         calls = g[g["call"]]
@@ -107,13 +132,15 @@ def kalshi_section(pred):
             "follow": {v: float(g[f"follow_{v}"].sum()) for v in BET_VENUES},
             "value": {v: float(g[f"value_{v}"].sum()) for v in BET_VENUES},
             "value_bets": int(g["value_bet"].sum()),
+            "rev": {v: float(g[f"rev_{v}"].sum()) for v in BET_VENUES},
+            "rev_bets": int(g["rev"].sum()), "rev_hits": int((g["rev"] & g["k_won"]).sum()),
             "avg_price": float(calls["price"].mean()) if kn else None,
         }
 
     out["coins"] = {c: stats_for(g) for c, g in s.groupby("coin")}
     out["coins"]["ALL"] = stats_for(s)
     s = s.sort_values("candle_ts")
-    cum = s[[f"follow_{v}" for v in BET_VENUES] + [f"value_{v}" for v in BET_VENUES]].cumsum()
+    cum = s[[f"follow_{v}" for v in BET_VENUES] + [f"value_{v}" for v in BET_VENUES] + [f"rev_{v}" for v in BET_VENUES]].cumsum()
     step = max(1, len(s) // 300)
     out["curve"] = [{"t": int(t), **{c: round(float(cum.iloc[i][c]), 2) for c in cum.columns}}
                     for i, t in enumerate(s["candle_ts"]) if i % step == 0 or i == len(s) - 1]
@@ -146,6 +173,7 @@ def build_live():
         "pct_error": scored["pct_error"],
         "conf": scored["confidence"].where(scored["model"] == "kronos"),
     })
+    long_df = derived_live_rows(long_df)
     # Recent table: one row per (coin, candle) with every model's call side by side.
     recent = []
     if not df.empty:
@@ -197,6 +225,7 @@ def build_backtest():
         bt = load_coin(coin)
         if bt.empty:
             continue
+        bt = add_derived(bt)
         actual = np.where(bt["close"] > bt["last_close"], 1, -1)
         for m in MODELS:
             parts.append(pd.DataFrame({
@@ -255,7 +284,7 @@ def build_timeframes():
             bt = load_coin(coin, horizon_dir(h))
             if bt.empty:
                 continue
-            bt = bt.sort_values("ts").drop_duplicates("ts")
+            bt = add_derived(bt.sort_values("ts").drop_duplicates("ts"))
             lg = _long_from_bt(bt, coin)
             longs.append(lg)
             per[coin] = _tf_entry(lg, bt["close"] / bt["last_close"] - 1, bt)
@@ -279,7 +308,8 @@ def _tf_entry(lg, ret, bt):
         sub = lg[lg["model"] == m].sort_values("ts")
         sm = summarize(sub)
         e[m] = {k: sm.get(k) for k in ["calls", "hits", "hit_rate", "ci_low", "ci_high", "coverage", "p_vs_50", "bets", "pnl_by_fee", "hold_by_fee", "trades", "candles"]}
-    e["kronos_vs"] = {b: compare(e["kronos"], e[b]) for b in ["momentum", "coin_flip", "always_up"]}
+    e["kronos_vs"] = {b: compare(e["kronos"], e[b]) for b in ["momentum", "coin_flip", "always_up", "snapback"]}
+    e["rev_vs_snapback"] = compare(e["kronos_rev"], e["snapback"])
     if bt is not None:
         e["first"], e["last"] = int(bt["ts"].iloc[0]), int(bt["ts"].iloc[-1])
     return e

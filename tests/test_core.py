@@ -228,3 +228,12 @@ def test_kalshi_section(monkeypatch):
 def test_coins_differ():
     assert stats.coins_differ({"a": (500, 1000), "b": (505, 1000)}) > 0.5
     assert stats.coins_differ({"a": (500, 1000), "b": (600, 1000), "c": (510, 1000)}) < 0.001
+
+
+def test_reversal_only():
+    # last candle up (momentum_up=1): an UP call is a continuation -> skipped; a DOWN call is a reversal -> kept
+    d, _ = signals.kronos_call([0.8, 0.2, 0.8, 0.2], [1, 1, 0, 0], dict(reversal_only=True))
+    assert list(d) == [0, -1, 1, 0]
+    base = dict(SETTINGS)
+    assert config.settings_id(base) == config.settings_id(dict(base, reversal_only=False))
+    assert config.settings_id(base) != config.settings_id(dict(base, reversal_only=True))

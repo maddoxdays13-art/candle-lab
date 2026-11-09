@@ -70,7 +70,10 @@ def inference_key(settings):
 
 
 def settings_id(settings):
-    return _hash({k: settings[k] for k in INFERENCE_FIELDS + DECISION_FIELDS})
+    d = {k: settings[k] for k in INFERENCE_FIELDS + DECISION_FIELDS}
+    if settings.get("reversal_only"):  # only added when on, so existing ids stay the same
+        d["reversal_only"] = True
+    return _hash(d)
 
 
 def load_champion_state():

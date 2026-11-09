@@ -4,6 +4,8 @@ const MODELS = [
   { key: "momentum", name: "Momentum", color: "--s-momentum" },
   { key: "coin_flip", name: "Coin flip", color: "--s-coin" },
   { key: "always_up", name: "Always up", color: "--s-up" },
+  { key: "kronos_rev", name: "Kronos reversals", color: "--s-rev" },
+  { key: "snapback", name: "Snap-back", color: "--s-snap" },
 ];
 const COINS = ["ALL", "BTC-USD", "ETH-USD", "SOL-USD"];
 const STALE_MINUTES = 60;
@@ -86,11 +88,12 @@ function lineChart(canvas, datasets, { yFmt = (v) => v + "%", refLine = null, xT
 
 /* ------------------------------------------------------------ shared section (Live & Backtest) */
 
+const fmtP = (p) => (p == null ? "–" : p < 0.001 ? "p<0.001" : "p=" + (+p).toFixed(3).replace(/0+$/, "").replace(/\.$/, ""));
 function verdict(vs) {
   if (!vs || vs.edge_pp == null) return `<span class="verdict meh">NOT ENOUGH DATA</span>`;
-  if (vs.p_value < 0.05 && vs.edge_pp > 0) return `<span class="verdict yes">✓ KRONOS BEATS IT (p=${vs.p_value})</span>`;
+  if (vs.p_value < 0.05 && vs.edge_pp > 0) return `<span class="verdict yes">✓ KRONOS BEATS IT (${fmtP(vs.p_value)})</span>`;
   if (vs.p_value > 0.95) return `<span class="verdict no">✗ KRONOS IS WORSE</span>`;
-  return `<span class="verdict luck">≈ NO PROVEN EDGE (p=${vs.p_value})</span>`;
+  return `<span class="verdict luck">≈ NO PROVEN EDGE (${fmtP(vs.p_value)})</span>`;
 }
 
 function matchups(coinData) {
@@ -99,12 +102,21 @@ function matchups(coinData) {
       <div class="big">${pct(k.hit_rate)}</div>
       <div class="sub">95% range ${pct(k.ci_low)} – ${pct(k.ci_high)} · ${num(k.calls)} calls</div>
       ${!k.calls ? `<span class="verdict meh">NOT ENOUGH DATA</span>` : k.ci_low > 0.5 ? `<span class="verdict yes">✓ ABOVE 50%</span>` : k.ci_high < 0.5 ? `<span class="verdict no">✗ BELOW 50%</span>` : `<span class="verdict luck">COULD BE LUCK</span>`}</div>`];
-  for (const m of MODELS.slice(1)) {
+  for (const m of MODELS.filter((x) => !["kronos", "kronos_rev"].includes(x.key))) {
     const vs = coinData.kronos_vs[m.key];
     const s = coinData.models[m.key].summary;
     cards.push(`<div class="card"><div class="label"><span class="swatch" style="background:${css(m.color)}"></span>Kronos vs ${m.name}</div>
       <div class="big ${cls(vs.edge_pp)}">${signed(vs.edge_pp, 1, " pp")}</div>
       <div class="sub">${pct(k.hit_rate)} vs ${pct(s.hit_rate)}</div>${verdict(vs)}</div>`);
+  }
+  const rv = coinData.models.kronos_rev?.summary, sb = coinData.models.snapback?.summary;
+  if (rv && rv.calls) {
+    const edge = sb?.hit_rate != null ? (rv.hit_rate - sb.hit_rate) * 100 : null;
+    const be = rv.bets?.[state.venue]?.breakeven;
+    cards.push(`<div class="card"><div class="label"><span class="swatch" style="background:${css("--s-rev")}"></span>Kronos reversals only</div>
+      <div class="big">${pct(rv.hit_rate)}</div>
+      <div class="sub">95% range ${pct(rv.ci_low)} – ${pct(rv.ci_high)} · ${num(rv.calls)} calls · vs Snap-back ${signed(edge, 1, " pp")}</div>
+      ${be && rv.ci_low > be ? `<span class="verdict yes">✓ ABOVE ${pct(be, 1)} BREAK-EVEN</span>` : be && rv.hit_rate > be ? `<span class="verdict luck">ABOVE BREAK-EVEN, NOT PROVEN</span>` : `<span class="verdict meh">BELOW ${be ? pct(be, 1) : "52%"} BREAK-EVEN</span>`}</div>`);
   }
   return `<div class="cards">${cards.join("")}</div>`;
 }
@@ -174,7 +186,7 @@ function timeframesSection(tf) {
   const best = rows.reduce((a, [h]) => (tf[h][coin].kronos.hit_rate ?? 0) > (a ? tf[a][coin].kronos.hit_rate ?? 0 : -1) ? h : a, null);
   return `<h2>Timeframes compared${coin === "ALL" ? " · all coins" : " · " + coin.replace("-USD", "")}</h2>
     <div class="tablewrap"><table><thead><tr><th>Timeframe</th><th>Typical move</th><th>Big moves*</th><th>Kronos hit rate</th><th>95% range</th><th>vs Coin flip</th>
-      <th>$1 bets (${esc(v.name)})</th><th>Trading P&amp;L (${feeInfo().pct})</th><th>Calls</th></tr></thead><tbody>
+      <th>$1 bets (${esc(v.name)})</th><th>Trading P&amp;L (${feeInfo().pct})</th><th>Calls</th><th>Reversals only</th></tr></thead><tbody>
     ${rows.map(([h, label]) => {
       const e = tf[h][coin], k = e.kronos, mv = e.moves, b = k.bets?.[state.venue];
       return `<tr class="${h === best ? "bestrow" : ""}"><td><b>${label}</b>${h === "15m" ? ' <span class="muted">(main)</span>' : ""}${h === best ? ' <span class="pill up">TOP</span>' : ""}</td>
@@ -184,7 +196,8 @@ function timeframesSection(tf) {
         <td class="${cls(e.kronos_vs?.coin_flip?.edge_pp)}">${signed(e.kronos_vs?.coin_flip?.edge_pp, 1, " pp")}</td>
         <td class="${cls(b?.pnl)}">${money(b?.pnl)} <span class="muted">(${b?.roi == null ? "–" : signed(b.roi * 100, 1)})</span></td>
         <td class="${cls(k.pnl_by_fee?.[state.fee])}">${coin === "ALL" ? "–" : signed(k.pnl_by_fee?.[state.fee])}</td>
-        <td>${num(k.calls)}</td></tr>`;
+        <td>${num(k.calls)}</td>
+        <td>${e.kronos_rev ? `<b>${pct(e.kronos_rev.hit_rate)}</b> <span class="muted">(${pct(e.kronos_rev.ci_low)}–${pct(e.kronos_rev.ci_high)})</span>` : "–"}</td></tr>`;
     }).join("")}</tbody></table></div>
     <div class="note">${p == null ? "" : p < 0.05 ? `<span class="verdict yes">✓ TIMEFRAME MATTERS</span>` : `<span class="verdict luck">≈ DIFFERENCES COULD BE LUCK (p=${p.toFixed(2)})</span>`}
       Typical move = average size of one candle's up-or-down move. *Big moves = share of candles that moved more than the ${feeInfo().pct}×2 = ${feeRT}% round-trip trading cost.
@@ -264,6 +277,8 @@ function renderBets(live, bt) {
         ${sharper === "Kronos" ? `<span class="verdict yes">KRONOS KNOWS MORE</span>` : sharper ? `<span class="verdict no">CROWD KNOWS MORE</span>` : ""}</div>
       <div class="card"><div class="label">Bet every Kronos call at the real price</div><div class="big ${cls(a.follow[state.venue])}">${money(a.follow[state.venue])}</div>
         <div class="sub">avg price paid ${a.avg_price != null ? Math.round(a.avg_price * 100) + "¢" : "–"} · ${esc(v.name)} fees</div></div>
+      <div class="card"><div class="label">Only Kronos reversal bets</div><div class="big ${cls(a.rev?.[state.venue])}">${money(a.rev?.[state.venue])}</div>
+        <div class="sub">${num(a.rev_bets)} bets · ${a.rev_bets ? pct(a.rev_hits / a.rev_bets) : "–"} right · at the real price</div></div>
       <div class="card"><div class="label">Only “value” bets</div><div class="big ${cls(a.value[state.venue])}">${money(a.value[state.venue])}</div>
         <div class="sub">${num(a.value_bets)} bets where Kronos's chance beat the price + fee by 2+ points</div></div>
     </div>
@@ -297,6 +312,7 @@ function drawBetCharts(live, bt) {
     lineChart($("#crowdChart"), [
       { label: "Bet every Kronos call", borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), data: k.curve.map((p) => ({ x: p.t, y: p["follow_" + state.venue] })) },
       { label: "Value bets only", borderColor: css("--warn"), backgroundColor: css("--warn"), data: k.curve.map((p) => ({ x: p.t, y: p["value_" + state.venue] })) },
+      { label: "Reversal bets only", borderColor: css("--s-rev"), backgroundColor: css("--s-rev"), data: k.curve.map((p) => ({ x: p.t, y: p["rev_" + state.venue] ?? null })) },
     ], { refLine: { y: 0, label: "Break-even" }, yFmt: (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2) });
   }
 }

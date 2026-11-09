@@ -17,13 +17,18 @@ def kronos_call(p_up, momentum_up, settings):
 
     blended = (1 - w) * p_up + w * (1 if last candle was up else 0)
     confidence = max(blended, 1 - blended)   (0.5 = no agreement, 1.0 = unanimous)
-    A call is skipped when confidence < min_confidence or blended is exactly 0.5.
+    A call is skipped when confidence < min_confidence or blended is exactly 0.5, and, with
+    reversal_only, when it points the same way as the last candle.
     """
     w = float(settings.get("momentum_blend", 0.0))
     p = (1 - w) * np.asarray(p_up, float) + w * np.asarray(momentum_up, float)
     conf = np.maximum(p, 1 - p)
     direction = np.where(p > 0.5, UP, np.where(p < 0.5, DOWN, SKIP))
     direction = np.where(conf < float(settings.get("min_confidence", 0.5)), SKIP, direction)
+    if settings.get("reversal_only"):
+        # keep only calls that go against the last candle; backtests show Kronos's edge is in these
+        last_dir = np.where(np.asarray(momentum_up, float) >= 0.5, UP, DOWN)
+        direction = np.where(direction == last_dir, SKIP, direction)
     return direction.astype(int), conf
 
 
