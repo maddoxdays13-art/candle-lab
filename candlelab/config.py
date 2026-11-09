@@ -7,7 +7,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 COINS = ["BTC-USD", "ETH-USD", "SOL-USD"]
 GRANULARITY = 900  # 15-minute candles, in seconds
-FEE = 0.001  # 0.1% per trade (charged on every position change)
+FEE = 0.001  # 0.1% per trade (charged on every position change); used by the experiments
+# Fee levels the dashboard can switch between (cost per buy and per sell). Checked Nov 2026; they change often.
+FEE_PRESETS = {
+    "best": 0.001,       # best case / very high-volume exchange accounts
+    "cb_maker": 0.005,   # Coinbase Advanced, entry tier, limit order that waits ("maker")
+    "cb_taker": 0.009,   # Coinbase Advanced, entry tier, order that fills right away ("taker")
+    "robinhood": 0.0095, # Robinhood app: ~$0.95 per $100, built into the spread
+}
 
 CANDLE_DIR = ROOT / "data" / "candles"          # not committed; cached in Actions
 LIVE_DIR = ROOT / "results" / "live"

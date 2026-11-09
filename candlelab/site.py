@@ -28,7 +28,8 @@ def section(long_df, window):
             sub = g[g["model"] == m].sort_values("ts")
             if coin == "ALL":  # pooled stats; P&L/rolling don't make sense across coins
                 s = summarize(sub)
-                s.pop("pnl_pct"), s.pop("hold_pct"), s.pop("trades")
+                for k in ("pnl_pct", "hold_pct", "trades", "pnl_by_fee", "hold_by_fee"):
+                    s.pop(k)
                 models[m] = {"summary": s, "rolling": []}
             else:
                 models[m] = {"summary": summarize(sub), "rolling": rolling_series(sub, window)}

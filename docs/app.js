@@ -20,7 +20,15 @@ const ago = (iso) => {
   return m < 1 ? "just now" : m < 60 ? `${Math.round(m)} min ago` : m < 2880 ? `${(m / 60).toFixed(1)} h ago` : `${Math.round(m / 1440)} days ago`;
 };
 
-const state = { tab: "live", coin: "ALL", data: {}, charts: [] };
+const state = { tab: "live", coin: "ALL", fee: "best", data: {}, charts: [] };
+const FEES = [
+  { key: "best", name: "Best case", pct: "0.1%" },
+  { key: "cb_maker", name: "Coinbase limit order", pct: "0.5%" },
+  { key: "cb_taker", name: "Coinbase market order", pct: "0.9%" },
+  { key: "robinhood", name: "Robinhood", pct: "~0.95%" },
+];
+const feeOf = (s, kind) => s?.[kind + "_by_fee"]?.[state.fee] ?? s?.[kind + "_pct"];
+const feeInfo = () => FEES.find((f) => f.key === state.fee) || FEES[0];
 
 async function load(name) {
   if (state.data[name] !== undefined) return state.data[name];
@@ -107,11 +115,16 @@ function scoreboard(coinData, pooled) {
       <td>${num(s.calls)}</td><td><b>${pct(s.hit_rate)}</b></td>
       <td>${pct(s.ci_low)} – ${pct(s.ci_high)}${ciBar(s)}</td>
       <td>${pct(s.coverage, 0)}</td>
-      ${pooled ? "" : `<td class="${cls(s.pnl_pct)}">${signed(s.pnl_pct)}</td><td class="${cls(s.hold_pct)}">${signed(s.hold_pct)}</td><td>${num(s.trades)}</td>`}
+      ${pooled ? "" : `<td class="${cls(feeOf(s, "pnl"))}">${signed(feeOf(s, "pnl"))}</td><td class="${cls(feeOf(s, "hold"))}">${signed(feeOf(s, "hold"))}</td><td>${num(s.trades)}</td>`}
       <td>${s.mean_abs_pct_error == null ? "–" : s.mean_abs_pct_error.toFixed(3) + "%"}</td></tr>`;
   }).join("");
   return `<div class="tablewrap"><table><thead><tr><th>Model</th><th>Predictions</th><th>Hit rate</th><th>95% range</th><th>Coverage</th>
     ${pooled ? "" : "<th>Paper P&amp;L</th><th>Hold coin</th><th>Trades</th>"}<th>Avg abs error</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function feeChips() {
+  return `<div class="chips feechips" role="group" aria-label="Trading fees"><span class="rangeinfo" style="margin:0 4px 0 0">Fees:</span>${FEES.map((f) =>
+    `<button class="chip" data-fee="${f.key}" aria-pressed="${state.fee === f.key}">${f.name} <span class="muted">${f.pct}</span></button>`).join("")}</div>`;
 }
 
 function coinChips() {
@@ -126,14 +139,15 @@ function performanceSection(d, kind) {
   if (kind === "live") html += priceSection();
   html += `<h2>Matchups${pooled ? " · all coins pooled" : ""}</h2>${matchups(coinData)}`;
   html += `<p class="note">Edge = Kronos hit rate minus the baseline's, in percentage points. "Beats it" needs a one-sided p-value under 0.05; anything else could be luck.</p>`;
-  html += `<h2>Scoreboard</h2>${scoreboard(coinData, pooled)}`;
-  html += `<p class="note">Paper P&amp;L: buy when the call is "up", sit in cash otherwise, 0.1% fee on every buy and sell. Hold coin = buy once and hold over the same candles.</p>`;
+  html += `<h2>Scoreboard</h2>${pooled ? "" : feeChips()}${scoreboard(coinData, pooled)}`;
+  html += `<p class="note">Paper P&amp;L: buy when the call is "up", sit in cash otherwise, paying <b>${feeInfo().pct} on every buy and every sell</b> (${feeInfo().name}).
+    Hold coin = buy once and hold over the same candles. Fee levels checked Nov 2026; your app's order preview shows your real cost.</p>`;
   html += calibrationSection(coinData, kind);
   if (pooled) {
     html += `<p class="note">Pick a coin above to see charts and P&amp;L.</p>`;
   } else {
     html += `<div class="grid2"><div><h2>Rolling hit rate (last ${kind === "live" ? 96 : 960} calls)</h2><div class="chartbox"><canvas id="rollChart"></canvas></div></div>
-      <div><h2>Paper P&amp;L vs holding</h2><div class="chartbox"><canvas id="pnlChart"></canvas></div></div></div>`;
+      <div><h2>Paper P&amp;L vs holding · ${feeInfo().name} fees</h2><div class="chartbox"><canvas id="pnlChart"></canvas></div></div></div>`;
   }
   return html;
 }
@@ -220,10 +234,10 @@ function drawPerformanceCharts(d) {
   })), { refLine: { y: 50, label: "50% (luck)" }, xType });
   const pnl = MODELS.slice(0, 2).map((m) => ({
     label: m.name + " P&L", borderColor: css(m.color), backgroundColor: css(m.color),
-    data: cd[m.key].rolling.map((p) => ({ x: p.t, y: p.pnl })),
+    data: cd[m.key].rolling.map((p) => ({ x: p.t, y: p.pnl_f?.[state.fee] ?? p.pnl })),
   }));
   pnl.push({ label: "Hold coin", borderColor: css("--s-hold"), backgroundColor: css("--s-hold"), borderDash: [6, 3],
-    data: cd.kronos.rolling.map((p) => ({ x: p.t, y: p.hold })) });
+    data: cd.kronos.rolling.map((p) => ({ x: p.t, y: p.hold_f?.[state.fee] ?? p.hold })) });
   lineChart($("#pnlChart"), pnl, { refLine: { y: 0, label: "Break-even" }, xType });
 }
 
@@ -377,6 +391,9 @@ async function render() {
     main.innerHTML = `<p class="pad muted">Could not render this tab: ${esc(e.message)}</p>`;
   }
   main.querySelectorAll("[data-coin]").forEach((b) => b.addEventListener("click", () => { state.coin = b.dataset.coin; save(); render(); }));
+  main.querySelectorAll("[data-fee]").forEach((b) => b.addEventListener("click", () => {
+    state.fee = b.dataset.fee; save(); const y = window.scrollY; render().then(() => window.scrollTo(0, y));
+  }));
 }
 
 /* ------------------------------------------------------------ live candlestick charts
@@ -665,7 +682,7 @@ async function startPrices() {
 }
 
 /* ------------------------------------------------------------ start */
-function save() { try { localStorage.setItem("candlelab", JSON.stringify({ tab: state.tab, coin: state.coin })); } catch {} }
+function save() { try { localStorage.setItem("candlelab", JSON.stringify({ tab: state.tab, coin: state.coin, fee: state.fee })); } catch {} }
 try { Object.assign(state, JSON.parse(localStorage.getItem("candlelab") || "{}")); } catch {}
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; save(); render(); }));
 headerStatus();

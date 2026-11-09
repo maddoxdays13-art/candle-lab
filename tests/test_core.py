@@ -194,3 +194,12 @@ def test_calibration():
     assert rows["60-70%"]["actual"] == pytest.approx(0.6) and rows["60-70%"]["verdict"] == "honest"
     assert rows["90-100%"]["actual"] == pytest.approx(0.6) and rows["90-100%"]["verdict"] == "overconfident"
     assert rows["50-60%"]["calls"] == 0 and rows["50-60%"]["verdict"] is None
+
+
+def test_pnl_by_fee():
+    df = pd.DataFrame({"ts": range(4), "direction": [1, -1, 1, -1], "actual_dir": [1, -1, 1, -1],
+                       "ret": [0.002, -0.002, 0.002, -0.002], "pct_error": [0.0] * 4})
+    s = stats.summarize(df)
+    assert s["pnl_by_fee"]["best"] > s["pnl_by_fee"]["cb_maker"] > s["pnl_by_fee"]["robinhood"]
+    assert s["pnl_by_fee"]["best"] == pytest.approx(s["pnl_pct"])
+    assert s["pnl_by_fee"]["robinhood"] < 0  # 4 trades x 0.95% wipes out +0.4%

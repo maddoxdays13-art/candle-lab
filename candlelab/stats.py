@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from .config import FEE
+from .config import FEE, FEE_PRESETS
 
 
 def wilson(hits, n, z=1.96):
@@ -65,6 +65,11 @@ def summarize(df):
     hits = int((called["direction"] == called["actual_dir"]).sum())
     lo, hi = wilson(hits, n)
     strat, hold, trades = paper_pnl(df["direction"].to_numpy(), df["ret"].to_numpy())
+    by_fee, hold_by_fee = {}, {}
+    for k, f in FEE_PRESETS.items():
+        s_, h_, _ = paper_pnl(df["direction"].to_numpy(), df["ret"].to_numpy(), fee=f)
+        by_fee[k] = float((s_[-1] - 1) * 100) if len(df) else 0.0
+        hold_by_fee[k] = float((h_[-1] - 1) * 100) if len(df) else 0.0
     return {
         "candles": int(len(df)),
         "calls": n,
@@ -78,6 +83,8 @@ def summarize(df):
         "pnl_pct": float((strat[-1] - 1) * 100) if len(df) else 0.0,
         "hold_pct": float((hold[-1] - 1) * 100) if len(df) else 0.0,
         "trades": trades,
+        "pnl_by_fee": by_fee,
+        "hold_by_fee": hold_by_fee,
     }
 
 
@@ -92,7 +99,9 @@ def rolling_series(df, window, max_points=300):
     roll_calls = called.astype(float).rolling(window, min_periods=1).sum()
     # Hide the rolling rate until there are enough calls for it to mean anything.
     rate = (roll_hits / roll_calls.where(roll_calls >= max(10, window // 4))).to_numpy()
-    strat, hold, _ = paper_pnl(df["direction"].to_numpy(), df["ret"].to_numpy())
+    d, r = df["direction"].to_numpy(), df["ret"].to_numpy()
+    curves = {k: paper_pnl(d, r, fee=f) for k, f in FEE_PRESETS.items()}
+    strat, hold = curves["best"][0], curves["best"][1]
     step = max(1, len(df) // max_points)
     idx = list(range(0, len(df), step))
     if idx and idx[-1] != len(df) - 1:
@@ -101,7 +110,9 @@ def rolling_series(df, window, max_points=300):
     return [{"t": int(ts[i]),
              "hit": None if np.isnan(rate[i]) else round(float(rate[i]), 4),
              "pnl": round(float(strat[i] - 1) * 100, 3),
-             "hold": round(float(hold[i] - 1) * 100, 3)} for i in idx]
+             "hold": round(float(hold[i] - 1) * 100, 3),
+             "pnl_f": {k: round(float(c[0][i] - 1) * 100, 3) for k, c in curves.items()},
+             "hold_f": {k: round(float(c[1][i] - 1) * 100, 3) for k, c in curves.items()}} for i in idx]
 
 
 CAL_BINS = [(0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0001)]
