@@ -68,9 +68,19 @@ def build_live():
                     row[m + "_correct"] = None if pd.isna(by.loc[m, "correct"]) else int(by.loc[m, "correct"])
             recent.append(row)
         recent = sorted(recent, key=lambda r: (-r["t"], r["coin"]))[:90]
+    # Kronos's calls for the price charts: last 3 days per coin.
+    marks = {}
+    k = df[df["model"] == "kronos"].sort_values("candle_ts")
+    for coin, g in k.groupby("coin"):
+        g = g.tail(300)
+        marks[coin] = [{"t": int(r.candle_ts), "dir": r.direction, "conf": r.confidence,
+                        "last": r.last_close, "pred": r.pred_close,
+                        "actual": None if pd.isna(r.actual_close) else r.actual_close,
+                        "ok": None if pd.isna(r.correct) else int(r.correct)} for r in g.itertuples()]
     state = load_champion_state()
     out = {
         "updated_at": _now(),
+        "marks": marks,
         "last_run_at": df["run_at"].max() if not df.empty else None,
         "total_rows": int(len(df)), "scored_rows": int(len(scored)),
         "champion": state["champion"], "probation": state.get("probation"),

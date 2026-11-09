@@ -176,3 +176,22 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
   .chip, .tabs button, .card, tbody tr { transition: none; }
   .chip:hover, .tabs button:hover, .card:hover { transform: none; }
 }
+
+/* ---------- live price charts ---------- */
+.chips.range { margin: 0 0 10px; }
+.chips.range .chip { padding: 4px 12px; font-size: 12px; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.pcard { --pc: var(--good); position: relative; overflow: hidden; background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 8%, var(--panel)), var(--panel) 60%);
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 8px; box-shadow: var(--lift); }
+.pcard::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--pc), transparent); }
+.ph { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.pbig { font: 800 30px/1.1 "Barlow", sans-serif; margin-top: 4px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.pchg { font-size: 13px; font-weight: 700; margin-top: 2px; }
+.pcall { text-align: right; font-size: 12px; min-width: 130px; }
+.pcall .pill { margin: 4px 0 3px; font-size: 13px; }
+.pcall .sub { color: var(--muted); font-size: 12px; }
+.pcall .sub b { color: var(--text); font-variant-numeric: tabular-nums; }
+.pchart { height: 200px; margin-top: 8px; }
+.pgrid.one .pchart { height: 340px; }
+.pgrid.one .pbig { font-size: 38px; }
+@media (max-width: 760px) { .pchart { height: 180px; } .pgrid.one .pchart { height: 260px; } .pbig { font-size: 26px; } }

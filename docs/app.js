@@ -123,6 +123,7 @@ function performanceSection(d, kind) {
   const coinData = d.coins[state.coin];
   const pooled = state.coin === "ALL";
   let html = coinChips();
+  if (kind === "live") html += priceSection();
   html += `<h2>Matchups${pooled ? " · all coins pooled" : ""}</h2>${matchups(coinData)}`;
   html += `<p class="note">Edge = Kronos hit rate minus the baseline's, in percentage points. "Beats it" needs a one-sided p-value under 0.05; anything else could be luck.</p>`;
   html += `<h2>Scoreboard</h2>${scoreboard(coinData, pooled)}`;
@@ -290,12 +291,13 @@ async function headerStatus() {
 }
 
 async function render() {
+  stopPrices();
   destroyCharts();
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === state.tab));
   const main = $("#main");
   const d = await load(state.tab);
   try {
-    if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) drawPerformanceCharts(d); }
+    if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) { drawPerformanceCharts(d); startPrices(); } }
     if (state.tab === "backtest") { main.innerHTML = pageHead("backtest") + renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
     if (state.tab === "experiments") { main.innerHTML = pageHead("experiments") + renderExperiments(d); drawExperimentChart(d); }
   } catch (e) {
@@ -305,6 +307,156 @@ async function render() {
   main.querySelectorAll("[data-coin]").forEach((b) => b.addEventListener("click", () => { state.coin = b.dataset.coin; save(); render(); }));
 }
 
+/* ------------------------------------------------------------ live prices (fetched by your browser straight from Coinbase) */
+const PRICE_COINS = ["BTC-USD", "ETH-USD", "SOL-USD"];
+const RANGES = { "6H": 24, "1D": 96, "3D": 288 };
+const price = { range: "1D", timers: [], charts: {}, candles: {}, last: {} };
+try { price.range = localStorage.getItem("candlelab-range") || "1D"; } catch {}
+if (!RANGES[price.range]) price.range = "1D";
+
+const fmtPrice = (p) => p.toLocaleString([], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const hhmm = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+function priceSection() {
+  const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
+  return `<h2>Live prices · 15-minute candles</h2>
+  <div class="chips range" role="group" aria-label="Chart range">${Object.keys(RANGES).map((r) =>
+    `<button class="chip" data-range="${r}" aria-pressed="${price.range === r}">${r}</button>`).join("")}</div>
+  <div class="pgrid${coins.length === 1 ? " one" : ""}">${coins.map((c) => `
+    <div class="pcard" id="p-${c}">
+      <div class="ph">
+        <div><div class="label">${c.replace("-USD", "")}</div><div class="pbig" data-f="price">–</div><div class="pchg" data-f="chg">&nbsp;</div></div>
+        <div class="pcall" data-f="call"></div>
+      </div>
+      <div class="pchart"><canvas></canvas></div>
+    </div>`).join("")}</div>
+  <p class="note">Prices come straight from Coinbase's free public feed and refresh every 15 seconds (Robinhood's price can differ by a few dollars).
+  ▲/▼ marks are Kronos's calls: <span class="pos">green = right</span>, <span class="neg">red = wrong</span>. The dashed blue line is Kronos's forecast for the candle forming right now.</p>`;
+}
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadCandles(coin) {
+  const end = Math.floor(Date.now() / 1000), start = end - RANGES[price.range] * 900;
+  const iso = (t) => new Date(t * 1000).toISOString();
+  const rows = await getJSON(`https://api.exchange.coinbase.com/products/${coin}/candles?granularity=900&start=${iso(start)}&end=${iso(end)}`);
+  price.candles[coin] = rows.map((x) => ({ t: x[0], c: +x[4] })).sort((a, b) => a.t - b.t);
+}
+
+async function loadTicker(coin) {
+  price.last[coin] = +(await getJSON(`https://api.exchange.coinbase.com/products/${coin}/ticker`)).price;
+}
+
+function openCall(coin) {
+  const now = Date.now() / 1000;
+  return (state.data.live?.marks?.[coin] || []).find((m) => m.actual == null && m.t <= now && m.t + 900 > now);
+}
+
+function updateCall(coin) {
+  const el = document.querySelector(`#p-${coin} [data-f=call]`);
+  if (!el) return;
+  const m = openCall(coin);
+  if (!m) { el.innerHTML = `<span class="muted">Waiting for Kronos's next call</span>`; return; }
+  const left = Math.max(0, Math.round(m.t + 900 - Date.now() / 1000));
+  el.innerHTML = `<div class="label">Kronos says</div>${dirPill(m.dir)}
+    <div class="sub">${m.dir === "skip" ? "too unsure" : pct(m.conf, 0) + " of samples agree"}</div>
+    <div class="sub">${hhmm(m.t * 1000)}–${hhmm((m.t + 900) * 1000)} candle · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>`;
+}
+
+function drawPrice(coin) {
+  const card = document.getElementById("p-" + coin);
+  const cs = price.candles[coin];
+  if (!card || !cs) return;
+  const nowS = Date.now() / 1000;
+  const pts = cs.filter((x) => x.t + 900 <= nowS).map((x) => ({ x: (x.t + 900) * 1000, y: x.c }));
+  if (price.last[coin]) pts.push({ x: Date.now(), y: price.last[coin] });
+  if (pts.length < 2) return;
+  const first = pts[0].y, last = pts[pts.length - 1].y, up = last >= first;
+  const col = css(up ? "--good" : "--bad");
+
+  card.querySelector("[data-f=price]").textContent = "$" + fmtPrice(last);
+  const chg = last - first;
+  card.querySelector("[data-f=chg]").innerHTML = `<span class="${up ? "pos" : "neg"}">${up ? "▲" : "▼"} $${fmtPrice(Math.abs(chg))} (${signed((chg / first) * 100)})</span> <span class="muted">past ${price.range}</span>`;
+  card.style.setProperty("--pc", col);
+
+  const minX = pts[0].x;
+  const marks = (state.data.live?.marks?.[coin] || [])
+    .filter((m) => m.actual != null && m.dir !== "skip" && (m.t + 900) * 1000 >= minX)
+    .map((m) => ({ x: (m.t + 900) * 1000, y: m.actual, m }));
+  const oc = openCall(coin);
+  const fc = oc && oc.pred != null ? [{ x: oc.t * 1000, y: oc.last }, { x: (oc.t + 900) * 1000, y: oc.pred }] : [];
+
+  const fill = (ctx) => {
+    const { chart } = ctx, area = chart.chartArea;
+    if (!area) return "transparent";
+    const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+    g.addColorStop(0, col + "55"); g.addColorStop(1, col + "00");
+    return g;
+  };
+  const datasets = [
+    { label: "Price", data: pts, borderColor: col, backgroundColor: fill, fill: "start", borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.2, order: 3 },
+    { label: "Kronos call", data: marks, showLine: false, order: 1, pointStyle: "triangle", pointRadius: 5, pointHoverRadius: 7,
+      pointRotation: (c) => (c.raw?.m.dir === "down" ? 180 : 0),
+      pointBackgroundColor: (c) => (c.raw?.m.ok ? css("--good") : css("--bad")), pointBorderColor: "#0A0A0B", pointBorderWidth: 1 },
+    { label: "Kronos forecast", data: fc, borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), borderDash: [5, 4],
+      borderWidth: 2, pointRadius: [0, 4], order: 2 },
+  ];
+
+  const xMin = minX, xMax = Math.max(pts[pts.length - 1].x, fc.length ? fc[1].x : 0);
+  let ch = price.charts[coin];
+  if (ch) { ch.data.datasets = datasets; Object.assign(ch.options.scales.x, { min: xMin, max: xMax }); ch.update("none"); return; }
+  ch = new Chart(card.querySelector("canvas"), {
+    type: "line", data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        x: { type: "linear", min: xMin, max: xMax, grid: { display: false }, ticks: { maxTicksLimit: 6, callback: (v) => price.range === "3D"
+          ? new Date(v).toLocaleDateString([], { weekday: "short" }) + " " + hhmm(v) : hhmm(v) } },
+        y: { position: "right", grid: { color: "#222428" }, ticks: { maxTicksLimit: 5, callback: (v) => "$" + v.toLocaleString() } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: (items) => items.length ? new Date(items[0].parsed.x).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "",
+          label: (it) => {
+            const m = it.raw?.m;
+            if (m) return `Kronos said ${m.dir.toUpperCase()} · ${m.ok ? "✓ right" : "✗ wrong"} · closed $${fmtPrice(m.actual)}`;
+            if (it.dataset.label === "Kronos forecast") return `Kronos forecast: $${fmtPrice(it.parsed.y)}`;
+            return `$${fmtPrice(it.parsed.y)}`;
+          },
+        } },
+      },
+    },
+  });
+  price.charts[coin] = ch;
+  state.charts.push(ch);
+}
+
+function stopPrices() { price.timers.forEach(clearInterval); price.timers = []; price.charts = {}; }
+
+async function startPrices() {
+  const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
+  document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", async () => {
+    price.range = b.dataset.range;
+    try { localStorage.setItem("candlelab-range", price.range); } catch {}
+    document.querySelectorAll("[data-range]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    await Promise.all(coins.map((c) => loadCandles(c).catch(() => {})));
+    coins.forEach(drawPrice);
+  }));
+  coins.forEach(updateCall);
+  const all = async (fn) => Promise.all(coins.map((c) => fn(c).catch((e) => console.warn(c, e))));
+  await all(async (c) => { await Promise.all([loadCandles(c), loadTicker(c)]); drawPrice(c); });
+  price.timers.push(setInterval(() => all(async (c) => { await loadTicker(c); drawPrice(c); }), 15000));
+  price.timers.push(setInterval(() => all(async (c) => { await loadCandles(c); drawPrice(c); }), 60000));
+  price.timers.push(setInterval(() => coins.forEach(updateCall), 1000));
+}
+
+/* ------------------------------------------------------------ start */
 function save() { try { localStorage.setItem("candlelab", JSON.stringify({ tab: state.tab, coin: state.coin })); } catch {} }
 try { Object.assign(state, JSON.parse(localStorage.getItem("candlelab") || "{}")); } catch {}
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; save(); render(); }));
