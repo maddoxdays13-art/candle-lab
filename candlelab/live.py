@@ -158,6 +158,13 @@ def main():
         kalshi.update(data.last_closed_open_ts() + GRANULARITY)
     except Exception as e:  # noqa: BLE001
         print(f"Kalshi logging skipped: {e}")
+    # Phone alerts for Strict-mode signals (needs the NTFY_TOPIC secret); never fatal.
+    try:
+        from . import notify
+        print("Alerts:")
+        notify.send_strict_alerts(data.last_closed_open_ts() + GRANULARITY)
+    except Exception as e:  # noqa: BLE001
+        print(f"Alerts skipped: {e}")
     from . import site
     site.build_live()
 

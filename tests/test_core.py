@@ -237,3 +237,24 @@ def test_reversal_only():
     base = dict(SETTINGS)
     assert config.settings_id(base) == config.settings_id(dict(base, reversal_only=False))
     assert config.settings_id(base) != config.settings_id(dict(base, reversal_only=True))
+
+
+def test_strict_alerts(tmp_path, monkeypatch):
+    from candlelab import kalshi, notify
+    monkeypatch.setattr(notify, "LIVE_DIR", tmp_path)
+    w = 1_800_000_000 // 900 * 900
+    rows = []
+    for coin, kdir, conf, pred, mom in [("BTC-USD", "down", 1.0, 99.0, "up"),     # strict: unanimous reversal, -1% move
+                                         ("ETH-USD", "down", 0.9, 99.0, "up"),     # not unanimous
+                                         ("SOL-USD", "up", 1.0, 101.0, "up")]:     # same direction as last candle
+        rows += [{"coin": coin, "model": "kronos", "candle_ts": w, "direction": kdir, "confidence": conf,
+                  "pred_close": pred, "last_close": 100.0},
+                 {"coin": coin, "model": "momentum", "candle_ts": w, "direction": mom, "confidence": 1.0,
+                  "pred_close": None, "last_close": 100.0}]
+    monkeypatch.setattr("candlelab.live.load_live", lambda: pd.DataFrame(rows))
+    monkeypatch.setattr(kalshi, "load", lambda: pd.DataFrame(columns=kalshi.COLS))
+    sent = []
+    monkeypatch.setattr(notify, "_post", lambda title, body, **k: sent.append((title, body)) or True)
+    assert notify.send_strict_alerts(w) == 1
+    assert "BTC: bet DOWN" in sent[0][0]
+    assert notify.send_strict_alerts(w) == 0  # never twice for the same window
