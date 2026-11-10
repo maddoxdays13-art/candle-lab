@@ -20,7 +20,7 @@ import pandas as pd
 
 from . import data
 from .backtest import load_coin
-from .config import COINS, ROOT, SITE_DATA_DIR
+from .config import COINS, CONFIG_DIR, ROOT, SITE_DATA_DIR, load_json
 from .stats import wilson
 
 OUT = ROOT / "results" / "research" / "kalshi_style.json"
@@ -62,7 +62,12 @@ def run(days):
         prev_cb = np.where(bt["last_close"] > bt["prev_close"], 1, -1)          # last candle, last-trade
         prev_k = np.where(a_open >= a_prev_open, 1, -1)                         # last window, Kalshi-style
         k = bt["kronos"].to_numpy()
+        strict = load_json(CONFIG_DIR / "strict.json")
+        mv = ((bt["pred_close"] / bt["last_close"] - 1).abs() * 100).to_numpy()
+        strict_sel = (k != 0) & (bt["kronos_conf"].to_numpy() >= strict["min_confidence"]) & (k != prev_cb) \
+            & (mv >= strict["min_move_pct"]["15m"][coin])
         strategies = [
+            ("Strict mode", np.where(strict_sel, k, 0), ok),
             ("Kronos (all calls)", k, ok),
             ("Kronos reversals", np.where(k != prev_cb, k, 0), ok),
             ("Kronos continuations", np.where(k == prev_cb, k, 0), ok),

@@ -5,22 +5,38 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from .config import (BACKTEST_DIR, LIVE_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
+from .config import (BACKTEST_DIR, CONFIG_DIR, LIVE_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
                      load_champion_state, load_json, save_json)
 from .stats import (bet_fee, bet_pnl, calibration, clean_nans, coins_differ, compare, rolling_series,
                     summarize, wilson)
 from .config import BET_VENUES, FEE_PRESETS
 
-MODELS = ["kronos", "momentum", "coin_flip", "always_up", "kronos_rev", "snapback"]
+MODELS = ["kronos", "momentum", "coin_flip", "always_up", "kronos_rev", "snapback", "strict"]
 # kronos_rev: only Kronos's reversal calls (it calls the opposite of the last candle); otherwise skip.
 # snapback:   always bet the last candle reverses (the simple rule Kronos's reversals have to beat).
+# strict:     Strict mode (config/strict.json): all samples agree + reversal + big predicted move.
 
 
-def add_derived(bt):
+def strict_cfg():
+    return load_json(CONFIG_DIR / "strict.json", {"min_confidence": 1.0, "min_move_pct": {}})
+
+
+def strict_mask(direction, conf, last_dir, move_pct, coin, h="15m"):
+    cfg = strict_cfg()
+    thr = cfg["min_move_pct"].get(h, {}).get(coin)
+    if thr is None:
+        return np.zeros(len(direction), bool)
+    return ((np.asarray(direction) != 0) & (np.asarray(conf, float) >= cfg["min_confidence"] - 1e-9)
+            & (np.asarray(direction) != np.asarray(last_dir)) & (np.asarray(move_pct, float) >= thr))
+
+
+def add_derived(bt, coin=None, h="15m"):
     """Derived strategies from the logged Kronos and momentum calls (momentum = last candle's direction)."""
     bt = bt.copy()
     bt["kronos_rev"] = np.where((bt["kronos"] != 0) & (bt["kronos"] != bt["momentum"]), bt["kronos"], 0)
     bt["snapback"] = -bt["momentum"]
+    mv = (bt["pred_close"] / bt["last_close"] - 1).abs() * 100
+    bt["strict"] = np.where(strict_mask(bt["kronos"], bt["kronos_conf"], bt["momentum"], mv, coin, h), bt["kronos"], 0)
     return bt
 
 
@@ -30,9 +46,14 @@ def derived_live_rows(long_df):
     m = long_df[long_df["model"] == "momentum"][["coin", "ts", "direction"]].rename(columns={"direction": "mom"})
     j = k.merge(m, on=["coin", "ts"])
     rev = j.assign(model="kronos_rev", direction=np.where((j["direction"] != 0) & (j["direction"] != j["mom"]), j["direction"], 0),
-                   pct_error=np.nan, conf=np.nan).drop(columns="mom")
-    snap = j.assign(model="snapback", direction=-j["mom"], pct_error=np.nan, conf=np.nan).drop(columns="mom")
-    return pd.concat([long_df, rev, snap], ignore_index=True)
+                   pct_error=np.nan, conf=np.nan)
+    snap = j.assign(model="snapback", direction=-j["mom"], pct_error=np.nan, conf=np.nan)
+    st = []
+    for coin, g in j.groupby("coin"):
+        mask = strict_mask(g["direction"], g["conf"], g["mom"], g["pmove"], coin)
+        st.append(g.assign(model="strict", direction=np.where(mask, g["direction"], 0), pct_error=np.nan, conf=np.nan))
+    parts = [long_df, rev, snap] + st
+    return pd.concat([p.drop(columns=[c for c in ("mom",) if c in p.columns]) for p in parts], ignore_index=True)
 DIR_NUM = {"up": 1, "down": -1, "skip": 0}
 
 
@@ -86,7 +107,8 @@ def kalshi_section(pred):
     out = {"windows": int(len(k)), "settled": 0, "coins": {}, "recent": [], "curve": [], "now": {}}
     if k.empty:
         return out
-    kr = pred[pred["model"] == "kronos"][["coin", "candle_ts", "direction", "confidence", "pred_close"]]
+    kr = pred[pred["model"] == "kronos"][["coin", "candle_ts", "direction", "confidence", "pred_close", "last_close"]] \
+        if "last_close" in pred else pred[pred["model"] == "kronos"][["coin", "candle_ts", "direction", "confidence", "pred_close"]]
     mo = pred[pred["model"] == "momentum"][["coin", "candle_ts", "direction"]].rename(columns={"direction": "mom"})
     m = k.merge(kr, on=["coin", "candle_ts"], how="left").merge(mo, on=["coin", "candle_ts"], how="left")
     m["p_up"] = np.where(m["direction"] == "up", m["confidence"], np.where(m["direction"] == "down", 1 - m["confidence"], 0.5))
@@ -116,6 +138,14 @@ def kalshi_section(pred):
     s["rev"] = s["call"] & s["mom"].isin(["up", "down"]) & (s["direction"] != s["mom"])
     for v in BET_VENUES:
         s[f"rev_{v}"] = np.where(s["rev"], s[f"follow_{v}"], 0.0)
+    s["strict"] = False
+    if "last_close" in s:
+        for coin, g in s.groupby("coin"):
+            mv = (g["pred_close"] / g["last_close"] - 1).abs() * 100
+            s.loc[g.index, "strict"] = strict_mask(g["direction"].map(DIR_NUM).fillna(0), g["confidence"],
+                                                    g["mom"].map(DIR_NUM).fillna(0), mv, coin)
+    for v in BET_VENUES:
+        s[f"strict_{v}"] = np.where(s["strict"], s[f"follow_{v}"], 0.0)
 
     def stats_for(g):
         calls = g[g["call"]]
@@ -134,13 +164,15 @@ def kalshi_section(pred):
             "value_bets": int(g["value_bet"].sum()),
             "rev": {v: float(g[f"rev_{v}"].sum()) for v in BET_VENUES},
             "rev_bets": int(g["rev"].sum()), "rev_hits": int((g["rev"] & g["k_won"]).sum()),
+            "strict": {v: float(g[f"strict_{v}"].sum()) for v in BET_VENUES},
+            "strict_bets": int(g["strict"].sum()), "strict_hits": int((g["strict"] & g["k_won"]).sum()),
             "avg_price": float(calls["price"].mean()) if kn else None,
         }
 
     out["coins"] = {c: stats_for(g) for c, g in s.groupby("coin")}
     out["coins"]["ALL"] = stats_for(s)
     s = s.sort_values("candle_ts")
-    cum = s[[f"follow_{v}" for v in BET_VENUES] + [f"value_{v}" for v in BET_VENUES] + [f"rev_{v}" for v in BET_VENUES]].cumsum()
+    cum = s[[f"follow_{v}" for v in BET_VENUES] + [f"value_{v}" for v in BET_VENUES] + [f"rev_{v}" for v in BET_VENUES] + [f"strict_{v}" for v in BET_VENUES]].cumsum()
     step = max(1, len(s) // 300)
     out["curve"] = [{"t": int(t), **{c: round(float(cum.iloc[i][c]), 2) for c in cum.columns}}
                     for i, t in enumerate(s["candle_ts"]) if i % step == 0 or i == len(s) - 1]
@@ -172,6 +204,7 @@ def build_live():
         "ret": scored["actual_close"] / scored["last_close"] - 1,
         "pct_error": scored["pct_error"],
         "conf": scored["confidence"].where(scored["model"] == "kronos"),
+        "pmove": ((scored["pred_close"] / scored["last_close"] - 1).abs() * 100).where(scored["model"] == "kronos"),
     })
     long_df = derived_live_rows(long_df)
     # Recent table: one row per (coin, candle) with every model's call side by side.
@@ -196,12 +229,16 @@ def build_live():
     # Kronos's calls for the price charts: last 3 days per coin.
     marks = {}
     k = df[df["model"] == "kronos"].sort_values("candle_ts")
+    mom = df[df["model"] == "momentum"][["coin", "candle_ts", "direction"]].rename(columns={"direction": "mom"})
+    k = k.merge(mom, on=["coin", "candle_ts"], how="left")
     for coin, g in k.groupby("coin"):
-        g = g.tail(300)
+        g = g.tail(300).copy()
+        mv = (g["pred_close"] / g["last_close"] - 1).abs() * 100
+        g["strict"] = strict_mask(g["direction"].map(DIR_NUM).fillna(0), g["confidence"], g["mom"].map(DIR_NUM).fillna(0), mv, coin)
         marks[coin] = [{"t": int(r.candle_ts), "dir": r.direction, "conf": r.confidence,
                         "last": r.last_close, "pred": r.pred_close,
                         "actual": None if pd.isna(r.actual_close) else r.actual_close,
-                        "ok": None if pd.isna(r.correct) else int(r.correct)} for r in g.itertuples()]
+                        "ok": None if pd.isna(r.correct) else int(r.correct), "strict": bool(r.strict)} for r in g.itertuples()]
     state = load_champion_state()
     out = {
         "updated_at": _now(),
@@ -212,6 +249,7 @@ def build_live():
         "coins": section(long_df, window=96),
         "recent": recent,
         "kalshi": kalshi_section(df),
+        "strict": strict_cfg(),
     }
     out["coin_compare"] = coin_compare(out["coins"])
     write_calibration_csv(out["coins"], LIVE_DIR / "calibration.csv")
@@ -225,7 +263,7 @@ def build_backtest():
         bt = load_coin(coin)
         if bt.empty:
             continue
-        bt = add_derived(bt)
+        bt = add_derived(bt, coin)
         actual = np.where(bt["close"] > bt["last_close"], 1, -1)
         for m in MODELS:
             parts.append(pd.DataFrame({
@@ -284,7 +322,7 @@ def build_timeframes():
             bt = load_coin(coin, horizon_dir(h))
             if bt.empty:
                 continue
-            bt = add_derived(bt.sort_values("ts").drop_duplicates("ts"))
+            bt = add_derived(bt.sort_values("ts").drop_duplicates("ts"), coin, h)
             lg = _long_from_bt(bt, coin)
             longs.append(lg)
             per[coin] = _tf_entry(lg, bt["close"] / bt["last_close"] - 1, bt)
@@ -310,6 +348,7 @@ def _tf_entry(lg, ret, bt):
         e[m] = {k: sm.get(k) for k in ["calls", "hits", "hit_rate", "ci_low", "ci_high", "coverage", "p_vs_50", "bets", "pnl_by_fee", "hold_by_fee", "trades", "candles"]}
     e["kronos_vs"] = {b: compare(e["kronos"], e[b]) for b in ["momentum", "coin_flip", "always_up", "snapback"]}
     e["rev_vs_snapback"] = compare(e["kronos_rev"], e["snapback"])
+    e["strict_vs_flip"] = compare(e["strict"], e["coin_flip"])
     if bt is not None:
         e["first"], e["last"] = int(bt["ts"].iloc[0]), int(bt["ts"].iloc[-1])
     return e

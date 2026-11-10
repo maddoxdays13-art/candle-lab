@@ -6,6 +6,7 @@ const MODELS = [
   { key: "always_up", name: "Always up", color: "--s-up" },
   { key: "kronos_rev", name: "Kronos reversals", color: "--s-rev" },
   { key: "snapback", name: "Snap-back", color: "--s-snap" },
+  { key: "strict", name: "Strict mode", color: "--s-strict" },
 ];
 const COINS = ["ALL", "BTC-USD", "ETH-USD", "SOL-USD"];
 const STALE_MINUTES = 60;
@@ -102,7 +103,7 @@ function matchups(coinData) {
       <div class="big">${pct(k.hit_rate)}</div>
       <div class="sub">95% range ${pct(k.ci_low)} – ${pct(k.ci_high)} · ${num(k.calls)} calls</div>
       ${!k.calls ? `<span class="verdict meh">NOT ENOUGH DATA</span>` : k.ci_low > 0.5 ? `<span class="verdict yes">✓ ABOVE 50%</span>` : k.ci_high < 0.5 ? `<span class="verdict no">✗ BELOW 50%</span>` : `<span class="verdict luck">COULD BE LUCK</span>`}</div>`];
-  for (const m of MODELS.filter((x) => !["kronos", "kronos_rev"].includes(x.key))) {
+  for (const m of MODELS.filter((x) => !["kronos", "kronos_rev", "strict"].includes(x.key))) {
     const vs = coinData.kronos_vs[m.key];
     const s = coinData.models[m.key].summary;
     cards.push(`<div class="card"><div class="label"><span class="swatch" style="background:${css(m.color)}"></span>Kronos vs ${m.name}</div>
@@ -117,6 +118,15 @@ function matchups(coinData) {
       <div class="big">${pct(rv.hit_rate)}</div>
       <div class="sub">95% range ${pct(rv.ci_low)} – ${pct(rv.ci_high)} · ${num(rv.calls)} calls · vs Snap-back ${signed(edge, 1, " pp")}</div>
       ${be && rv.ci_low > be ? `<span class="verdict yes">✓ ABOVE ${pct(be, 1)} BREAK-EVEN</span>` : be && rv.hit_rate > be ? `<span class="verdict luck">ABOVE BREAK-EVEN, NOT PROVEN</span>` : `<span class="verdict meh">BELOW ${be ? pct(be, 1) : "52%"} BREAK-EVEN</span>`}</div>`);
+  }
+  const st = coinData.models.strict?.summary;
+  if (st && st.calls) {
+    const be = st.bets?.[state.venue]?.breakeven;
+    cards.push(`<div class="card strictcard"><div class="label">⚡ Strict mode</div>
+      <div class="big">${pct(st.hit_rate)}</div>
+      <div class="sub">95% range ${pct(st.ci_low)} – ${pct(st.ci_high)} · ${num(st.calls)} calls (${pct(st.coverage, 1)} of candles)</div>
+      <div class="sub">All 10 samples agree + reversal + big predicted move</div>
+      ${be && st.ci_low > be ? `<span class="verdict yes">✓ ABOVE ${pct(be, 1)} BREAK-EVEN</span>` : be && st.hit_rate > be ? `<span class="verdict luck">ABOVE BREAK-EVEN, NOT PROVEN</span>` : `<span class="verdict meh">BELOW ${be ? pct(be, 1) : "52%"} BREAK-EVEN</span>`}</div>`);
   }
   return `<div class="cards">${cards.join("")}</div>`;
 }
@@ -277,6 +287,8 @@ function renderBets(live, bt) {
         ${sharper === "Kronos" ? `<span class="verdict yes">KRONOS KNOWS MORE</span>` : sharper ? `<span class="verdict no">CROWD KNOWS MORE</span>` : ""}</div>
       <div class="card"><div class="label">Bet every Kronos call at the real price</div><div class="big ${cls(a.follow[state.venue])}">${money(a.follow[state.venue])}</div>
         <div class="sub">avg price paid ${a.avg_price != null ? Math.round(a.avg_price * 100) + "¢" : "–"} · ${esc(v.name)} fees</div></div>
+      <div class="card strictcard"><div class="label">⚡ Only Strict-mode bets</div><div class="big ${cls(a.strict?.[state.venue])}">${money(a.strict?.[state.venue])}</div>
+        <div class="sub">${num(a.strict_bets)} bets · ${a.strict_bets ? pct(a.strict_hits / a.strict_bets) : "–"} right · at the real price</div></div>
       <div class="card"><div class="label">Only Kronos reversal bets</div><div class="big ${cls(a.rev?.[state.venue])}">${money(a.rev?.[state.venue])}</div>
         <div class="sub">${num(a.rev_bets)} bets · ${a.rev_bets ? pct(a.rev_hits / a.rev_bets) : "–"} right · at the real price</div></div>
       <div class="card"><div class="label">Only “value” bets</div><div class="big ${cls(a.value[state.venue])}">${money(a.value[state.venue])}</div>
@@ -333,6 +345,7 @@ function drawBetCharts(live, bt) {
       { label: "Bet every Kronos call", borderColor: css("--s-kronos"), backgroundColor: css("--s-kronos"), data: k.curve.map((p) => ({ x: p.t, y: p["follow_" + state.venue] })) },
       { label: "Value bets only", borderColor: css("--warn"), backgroundColor: css("--warn"), data: k.curve.map((p) => ({ x: p.t, y: p["value_" + state.venue] })) },
       { label: "Reversal bets only", borderColor: css("--s-rev"), backgroundColor: css("--s-rev"), data: k.curve.map((p) => ({ x: p.t, y: p["rev_" + state.venue] ?? null })) },
+      { label: "Strict-mode bets only", borderColor: css("--s-strict"), backgroundColor: css("--s-strict"), data: k.curve.map((p) => ({ x: p.t, y: p["strict_" + state.venue] ?? null })) },
     ], { refLine: { y: 0, label: "Break-even" }, yFmt: (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2) });
   }
 }
@@ -732,13 +745,20 @@ function renderOdds(coin) {
   const move = now && m.last ? (now / m.last - 1) * 100 : null;
   const onTrack = move == null || m.dir === "skip" ? "" : (move > 0) === (m.dir === "up")
     ? `<span class="pos">✓ on track</span>` : `<span class="neg">✗ going against it</span>`;
-  el.innerHTML = `<div class="olabel">Next close · ${hhmm(m.t * 1000)}–${hhmm((m.t + 900) * 1000)} candle · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>
+  const strictBadge = m.strict ? `<div class="strictsig">⚡ STRICT SIGNAL: all samples agree on a big ${m.dir === "up" ? "bounce up" : "drop back"} ${strictRecord(coin)}</div>` : "";
+  el.innerHTML = `${strictBadge}<div class="olabel">Next close · ${hhmm(m.t * 1000)}–${hhmm((m.t + 900) * 1000)} candle · closes in <b>${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}</b></div>
     <div class="obar"><div class="oup${up >= 0.5 ? " lead" : ""}" style="width:${Math.max(up * 100, 14)}%">▲ UP ${Math.round(up * 100)}%</div>
       <div class="odown${up < 0.5 ? " lead" : ""}" style="width:${Math.max((1 - up) * 100, 14)}%">${Math.round((1 - up) * 100)}% DOWN ▼</div></div>
     <div class="osub">Kronos ${m.dir === "skip" ? "is too unsure to call it" : "calls <b>" + m.dir.toUpperCase() + "</b>"}${m.pred != null ? ` · expects close <b>$${fmtPrice(m.pred)}</b>` : ""}
       ${move != null ? ` · since the call: <span class="${move >= 0 ? "pos" : "neg"}">${move >= 0 ? "▲" : "▼"} ${signed(move, Math.abs(move) < 0.1 ? 3 : 2)}</span> ${onTrack}` : ""}</div>
     <div class="osub">${rec}</div>${crowdLine(coin, m)}${honesty(coin, m)}
     <div class="wbtns"><button class="wbtn up" data-wbet="${coin}:up">Practice: bet ▲ Up</button><button class="wbtn down" data-wbet="${coin}:down">Practice: bet ▼ Down</button></div>`;
+}
+
+// Strict mode's backtest record for this coin, shown next to a live signal.
+function strictRecord(coin) {
+  const s = state.data.backtest?.coins?.[coin]?.models?.strict?.summary;
+  return s?.calls ? `· backtest: right ${pct(s.hit_rate)} of ${num(s.calls)} times` : "";
 }
 
 // Kalshi's betting crowd for the same window, as logged at Kronos's call.
@@ -847,7 +867,7 @@ function stopPrices() {
 }
 
 async function startPrices() {
-  load("backtest");  // for the Up/Down "reality check" line
+  load("backtest").then(() => (state.coin === "ALL" ? PRICE_COINS : [state.coin]).forEach(renderOdds));  // for the Up/Down "reality check" line
   const coins = state.coin === "ALL" ? PRICE_COINS : [state.coin];
   const all = async (fn) => Promise.all(coins.map((c) => fn(c).catch((e) => console.warn(c, e))));
   const info = (t) => { const el = $("#rangeinfo"); if (el) el.textContent = t; };

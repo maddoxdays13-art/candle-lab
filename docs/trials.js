@@ -46,7 +46,10 @@ function trPrep(d) {
   }
   // "busy" vs "quiet": split at the median volatility of the Choose part only (never peeks at Check)
   const cut = Math.floor(n * 2 / 3), v = Array.from(vol.slice(16, cut)).sort((x, y) => x - y);
-  d._prep = { trend, vol, volMed: v[Math.floor(v.length / 2)] || 0 };
+  // Strict mode's "big move" cutoff: 90th percentile of |predicted move| among Kronos's calls on Choose
+  const mv = []; for (let i = 0; i < cut; i++) if (d.p[i] !== 50) mv.push(Math.abs(d.m[i]));
+  mv.sort((x, y) => x - y);
+  d._prep = { trend, vol, volMed: v[Math.floor(v.length / 2)] || 0, mq90: mv[Math.floor(mv.length * 0.9)] || 0 };
   return d._prep;
 }
 
@@ -62,6 +65,7 @@ function trDecide(d, s, i) {
   const conf = Math.max(p, 1 - p), m = d.m[i];
   let dir = p > 0.5 ? 1 : p < 0.5 ? -1 : 0;
   if (conf < s.minConf) dir = 0;
+  if (s.strictMove && dir !== 0 && Math.abs(m) < trPrep(d).mq90) dir = 0;
   if (s.minMove && dir !== 0 && (dir === 1 ? m < s.minMove : m > -s.minMove)) dir = 0;
   if (dir !== 0 && s.rule) {
     const pr = trPrep(d);
@@ -83,6 +87,7 @@ const TR_RULES = { agree_mom: "only when Kronos agrees with the last candle", re
 /* Lab trials: ideas worth testing, like LineDesk's study versions. "Big move" is a share of the
    timeframe's move slider (TR_MOVE_MAX), so it scales from 15 minutes to a day. */
 const TR_LAB = [
+  { name: "⚡ Strict mode", why: "all 10 samples agree + reversal + top-10% predicted move", s: { minConf: 1, rule: "reversal", strictMove: true } },
   { name: "Kronos as-is", why: "the current champion: call every candle", s: {} },
   { name: "Coin flip", why: "pure luck, the bar everything must clear", s: { base: "coin" } },
   { name: "Always up", why: "crypto has mostly drifted up; does that beat Kronos?", s: { base: "always_up" } },
@@ -103,7 +108,7 @@ const TR_LAB = [
   { name: "Half momentum", why: "50/50 blend of Kronos and the last candle", s: { blend: 0.5 } },
   { name: "Trade less (60%+)", why: "fewer coin trades: hold through unsure candles (affects trading P&L)", s: { minConf: 0.6, hold: true } },
 ];
-const trBase = { base: "kronos", minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: false, rule: null };
+const trBase = { base: "kronos", minConf: 0.5, blend: 0, minMove: 0, hold: false, invert: false, rule: null, strictMove: false };
 function trLabSettings(t) {
   const s = { ...trBase, ...t.s };
   if (s.moveFrac != null) { s.minMove = Math.round((TR_MOVE_MAX[TR.s.tf] || 50) * s.moveFrac); delete s.moveFrac; }
@@ -166,7 +171,7 @@ function renderTrials() {
       A trial only counts if it also holds up on <b>Check</b> and beats the coin flip there.</p>
       <div id="tr-lab"><p class="muted">Running…</p></div></div>
     <h2>Your settings</h2>
-    ${s.rule || (s.base && s.base !== "kronos") ? `<div class="chips" style="margin:-4px 0 8px"><span class="pill up">+ ${esc(s.base && s.base !== "kronos" ? s.base.replace("_", " ") : TR_RULES[s.rule])}</span>
+    ${s.rule || s.strictMove || (s.base && s.base !== "kronos") ? `<div class="chips" style="margin:-4px 0 8px"><span class="pill up">+ ${esc(s.base && s.base !== "kronos" ? s.base.replace("_", " ") : [TR_RULES[s.rule], s.strictMove ? "top-10% predicted move" : ""].filter(Boolean).join(" + "))}</span>
       <button class="chip" data-trclear="1">✕ clear extra rule</button></div>` : ""}
     <div class="card tr-controls">
       ${slider("minConf", "Only call when samples agree at least ", 0.5, 1, 0.05, (v) => Math.round(v * 100) + "%")}
@@ -310,7 +315,7 @@ function bindTrials() {
   document.querySelectorAll("[data-trtf]").forEach((b) => b.addEventListener("click", () => { TR.s.tf = b.dataset.trtf; TR.grid = null; trSave(); render(); }));
   document.querySelectorAll("[data-trp]").forEach((b) => b.addEventListener("click", () => { Object.assign(TR.s, { rule: null, base: "kronos" }, TR_PRESETS[+b.dataset.trp].s); trSave(); render(); }));
   document.querySelectorAll("[data-trgrid]").forEach((b) => b.addEventListener("click", runGrid));
-  document.querySelectorAll("[data-trclear]").forEach((b) => b.addEventListener("click", () => { TR.s.rule = null; TR.s.base = "kronos"; trSave(); render(); }));
+  document.querySelectorAll("[data-trclear]").forEach((b) => b.addEventListener("click", () => { TR.s.rule = null; TR.s.base = "kronos"; TR.s.strictMove = false; trSave(); render(); }));
   if (TR.bound) return;
   TR.bound = true;
   document.addEventListener("click", (e) => {
