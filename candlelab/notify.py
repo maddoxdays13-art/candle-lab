@@ -43,6 +43,21 @@ def _local(ts):
     return datetime.fromtimestamp(int(ts), tz=TZ).strftime("%-I:%M %p")
 
 
+LIVE_MIN = 100  # live Strict picks needed before sizing trusts the live record over the backtest
+
+
+def win_rate_for(backtest_summary, live_summary):
+    """Win rate used for bet sizing, plus a one-line note saying where it came from."""
+    bt_rate = backtest_summary["hit_rate"] if backtest_summary and backtest_summary.get("calls") else 0.54
+    n, hits = int(live_summary.get("calls") or 0), int(live_summary.get("hits") or 0)
+    if n >= LIVE_MIN:
+        return hits / n, (f"Sizes use the LIVE record: {hits} of {n} right ({hits / n:.0%}). "
+                          f"Backtest was {bt_rate:.0%}.")
+    live = f"{hits} of {n} right so far" if n else "no picks scored yet"
+    return bt_rate, (f"Sizes use the backtest win rate ({bt_rate:.0%}); live: {live}. "
+                     f"After {LIVE_MIN} live picks they switch to the live record, so if it ends up lower, sizes shrink automatically.")
+
+
 def size_advice(price, win_rate):
     """How much to bet on a Strict signal, as a multiple of your normal bet.
     edge = win chance - price - Kalshi fee (dollars per $1-payout contract).
@@ -88,6 +103,7 @@ def send_strict_alerts(window_ts):
     except Exception:  # noqa: BLE001
         ks = pd.DataFrame()
     bt = site.load_json(site.SITE_DATA_DIR / "backtest.json", {})
+    live = site.load_json(site.SITE_DATA_DIR / "live.json", {})
     rows = []
     for r in j.itertuples():
         mv = abs(r.pred_close / r.last_close - 1) * 100
@@ -100,7 +116,8 @@ def send_strict_alerts(window_ts):
         yb = ya = None
         size = ""
         s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
-        win = s["hit_rate"] if s and s.get("calls") else 0.54
+        lv = (live.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary") or {}
+        win, basis = win_rate_for(s, lv)
         if r.coin in ks.index and pd.notna(ks.at[r.coin, "yes_bid"]):
             yb, ya = float(ks.at[r.coin, "yes_bid"]), float(ks.at[r.coin, "yes_ask"])
             na = ks.at[r.coin, "no_ask"] if "no_ask" in ks.columns else None
@@ -114,6 +131,7 @@ def send_strict_alerts(window_ts):
         ap = _autopilot_bet(r.coin, window_ts)
         if ap is not None:
             lines.append(f"🌙 Autopilot bet ${ap['cost']:.2f} {ap['side'].upper()} at {round(ap['price'] * 100)}¢ (practice)")
+        lines.append(basis)
         lines.append("Seeing this late? Re-check the price: still 55¢ or less with 5+ min left, or skip. Never more than 2x.")
         lines.append("Practice only. Not financial advice.")
         try:

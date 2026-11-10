@@ -280,11 +280,16 @@
   function sizeHint(q, left, coin) {
     const st = typeof state !== "undefined" ? state : null;
     const s = st?.data?.backtest?.coins?.[coin]?.models?.strict?.summary;
-    const win = s?.calls ? s.hit_rate : 0.54;
+    const lv = st?.data?.live?.coins?.[coin]?.models?.strict?.summary;
+    const useLive = (lv?.calls || 0) >= 100;
+    const win = useLive ? lv.hit_rate : s?.calls ? s.hit_rate : 0.54;
+    const basis = useLive ? `Using the live record (${lv.hits} of ${lv.calls} right).`
+      : `Based on the backtest; live so far: ${lv?.calls ? `${lv.hits} of ${lv.calls} right` : "none scored yet"}. Switches to the live record after 100 live picks, so if it ends up lower, sizes shrink automatically.`;
     if (left != null && left < 300) return `<div class="w-rule bad">⚠ Strict rule says skip: less than 5 minutes left</div>`;
     const a = sizeAdvice(q, win);
     return `<div class="w-rule ${a.mult ? "ok" : "bad"}">${a.mult ? "✓" : "⚠"} If this is a ⚡ Strict signal: <b>${a.label}</b>
-      <span style="font-weight:600">· ${Math.round(q * 100)}¢ vs a ${Math.round(win * 100)}% win chance → edge ${a.edge >= 0 ? "+" : ""}${(a.edge * 100).toFixed(1)}¢ per contract</span></div>`;
+      <span style="font-weight:600">· ${Math.round(q * 100)}¢ vs a ${Math.round(win * 100)}% win chance → edge ${a.edge >= 0 ? "+" : ""}${(a.edge * 100).toFixed(1)}¢ per contract</span>
+      <div style="font-weight:500;opacity:.85;margin-top:3px">${basis}</div></div>`;
   }
 
   /* ---------- night autopilot (runs on GitHub; read-only here) ---------- */

@@ -291,3 +291,11 @@ def test_size_advice():
     assert size_advice(0.52, 0.546)[1] == 1        # ~+0.9c edge
     assert size_advice(0.56, 0.546)[1] == 0        # above 55c -> skip
     assert size_advice(0.35, 0.546)[1] == 1        # suspiciously cheap -> don't size up
+
+
+def test_win_rate_for():
+    from candlelab.notify import win_rate_for
+    w, note = win_rate_for({"hit_rate": 0.56, "calls": 2000}, {"calls": 4, "hits": 3})
+    assert w == 0.56 and "backtest" in note and "3 of 4" in note
+    w, note = win_rate_for({"hit_rate": 0.56, "calls": 2000}, {"calls": 120, "hits": 60})
+    assert w == 0.5 and "LIVE" in note
