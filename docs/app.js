@@ -313,7 +313,7 @@ function renderBets(live, bt) {
 function kalshiStyleSection(ks) {
   if (!ks?.pooled) return "";
   const be = 0.5 + 0.07 * 0.25, bem = 0.5 + 0.0175 * 0.25;
-  const names = ["Kronos reversals", "Snap-back (reverse last candle)", "Kronos (all calls)", "Kronos continuations", "Coin flip"];
+  const names = ["Strict mode", "Kronos reversals", "Snap-back (reverse last candle)", "Kronos (all calls)", "Kronos continuations", "Coin flip"];
   return `<h2>Does the edge survive Kalshi's settlement rule? (research, last ~${ks.days} days of each coin's backtest)</h2>
     <div class="tablewrap"><table><thead><tr><th>Strategy</th><th>Coinbase last-trade rule</th><th>Kalshi-style 60-second averages</th><th>Calls</th><th>vs Kalshi break-even</th></tr></thead><tbody>
     ${names.filter((n) => ks.pooled[n]).map((n) => {
