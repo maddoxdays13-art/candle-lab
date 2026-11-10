@@ -189,7 +189,8 @@
     const per = ask ? ask + fee(ask) : null, n = per ? Math.floor(ui.stake / per) : 0;
     p.innerHTML = `
       <div class="w-head"><div><div class="w-title">Practice wallet</div><div class="w-sub">Fake money · practice only</div></div>
-        <button class="w-x" data-w="close" aria-label="Close">✕</button></div>
+        <div class="w-hbtns"><button class="w-x w-tr" data-wt="transfer" aria-label="Transfer wallet to another device" title="Transfer to another device">⇄</button>
+        <button class="w-x" data-w="close" aria-label="Close">✕</button></div></div>
       <div class="w-bal"><div><div class="w-sub">Balance</div><div class="w-big">${usd(W.balance)}</div></div>
         <button class="w-claim" data-w="claim" ${canClaim ? "" : "disabled"}>${canClaim ? "🎁 Claim free $100" : "✓ Claimed today"}</button></div>
       <div class="w-tabs">${[["bet", "Bet"], ["open", `Open (${open.length + W.positions.filter((x) => x.status === "open").length})`], ["history", "History"]].map(([k2, l]) =>
@@ -207,8 +208,12 @@
         <div class="w-row">${[1, 5, 10, 25].map((v) => `<button class="chip" data-wa="${v}" aria-pressed="${+ui.stake === v}">$${v}</button>`).join("")}
           <input class="w-amt" type="number" min="1" step="1" value="${ui.stake}" aria-label="Stake in dollars"></div>
         <div class="w-sub w-quote">${ask ? `${n} contract${n === 1 ? "" : "s"} × ${Math.round(ask * 100)}¢ + fee ${(fee(ask) * 100).toFixed(2)}¢ = <b>${usd(n * per)}</b> · pays <b>${usd(n)}</b> if ${ui.side.toUpperCase()} wins` : ""}</div>
+        ${ask ? `<div class="w-rule ${ask <= 0.55 && left >= 300 ? "ok" : "bad"}">${ask <= 0.55 && left >= 300
+          ? `✓ Good spot for the Strict rule: ${Math.round(ask * 100)}¢ is 55¢ or less, with 5+ minutes left`
+          : `⚠ Strict rule says skip: ${ask > 0.55 ? `${Math.round(ask * 100)}¢ is above 55¢` : "less than 5 minutes left"}`}</div>` : ""}
         <button class="w-place ${ui.side}" data-w="place" ${left != null && left < CUTOFF ? "disabled" : ""}>${left != null && left < CUTOFF ? "Window closing…" : `Buy ${ui.side.toUpperCase()}`}</button>
         <div class="w-fine">Simulated market from Coinbase's live price (real Kalshi/Robinhood prices differ). Settles on Coinbase's 15-minute candle: UP wins if it closes at or above the open. Kalshi-style fees on every buy and sell.</div>`)
+      : ui.tab === "transfer" ? transferHTML()
       : ui.tab === "open" ? positionsHTML() + (open.length ? open.map((b) => {
           const mm = mkt[b.coin], q = mm?.t === b.t ? bidFor(mm, b.side) : null, val = q != null ? b.n * (q - fee(q)) : null;
           return `<div class="w-bet"><div><b>${b.coin.replace("-USD", "")} ${b.side === "up" ? "▲ UP" : "▼ DOWN"}</b> · ${b.n} @ ${Math.round(b.price * 100)}¢
@@ -264,6 +269,82 @@
     }).join("");
   }
 
+  /* ---------- transfer between devices ---------- */
+  const b64u = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64u = (str) => Uint8Array.from(atob(str.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  async function packWallet() {
+    const slim = { ...W, bets: W.bets.slice(0, 100), positions: W.positions.slice(0, 100), v: 1 };
+    const raw = new TextEncoder().encode(JSON.stringify(slim));
+    if (typeof CompressionStream === "undefined") return "j" + b64u(raw);
+    const gz = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+    let out = "";
+    for (let i = 0; i < gz.length; i += 8192) out += String.fromCharCode(...gz.subarray(i, i + 8192));
+    return "z" + btoa(out).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  async function unpackWallet(code) {
+    code = code.trim().replace(/^.*#wallet=/, "");
+    const bytes = unb64u(code.slice(1));
+    const raw = code[0] === "z"
+      ? new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer())
+      : bytes;
+    const w = JSON.parse(new TextDecoder().decode(raw));
+    if (typeof w.balance !== "number" || !Array.isArray(w.bets)) throw new Error("not a wallet");
+    return { balance: w.balance, lastClaim: w.lastClaim || null, claims: w.claims || 0, bets: w.bets, positions: w.positions || [] };
+  }
+  const transferLink = (code) => location.origin + location.pathname + "#wallet=" + code;
+
+  function transferHTML() {
+    return `<div class="w-sub" style="margin-bottom:8px">Move this wallet (balance, open bets, history) to your other device.</div>
+      <div class="w-tbox"><b>Send from this device</b>
+        <div class="w-row"><button class="chip" data-w="tlink">📋 Copy transfer link</button>${navigator.share ? `<button class="chip" data-w="tshare">↗ Share…</button>` : ""}
+          <button class="chip" data-w="tqr">▦ Show QR code</button></div>
+        <div id="w-qr" class="w-qr"></div>
+        <div class="w-sub">Text, email or AirDrop the link to yourself, or scan the QR with your phone's camera. Opening it on the other device asks before replacing that device's wallet.</div></div>
+      <div class="w-tbox"><b>Receive on this device</b>
+        <textarea class="w-code" placeholder="…or paste a transfer link or code here" aria-label="Transfer code"></textarea>
+        <button class="chip" data-w="timport">⬇ Import</button></div>`;
+  }
+
+  async function importCode(code) {
+    let w;
+    try { w = await unpackWallet(code); } catch { return toast("That transfer code didn't work. Copy the whole link and try again."); }
+    const ok = confirm(`Replace this device's practice wallet with the transferred one?\n\nTransferred: ${usd(w.balance)} cash, ${w.bets.length} bets, ${w.positions.length} trades.\nThis device now: ${usd(W.balance)} cash, ${W.bets.length} bets.`);
+    if (!ok) return;
+    W = w; saveW(); toast("Wallet transferred ✓"); ui.tab = "bet"; draw(); settle();
+  }
+
+  async function checkHashImport() {
+    if (!location.hash.startsWith("#wallet=")) return;
+    const code = location.hash.slice(8);
+    history.replaceState(null, "", location.pathname + location.search);
+    ui.open = true; draw();
+    await importCode(code);
+  }
+
+  async function loadQR() {
+    if (window.QRCode) return;
+    await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+  }
+
+  async function transferAction(a) {
+    const link = transferLink(await packWallet());
+    if (a === "tlink") {
+      try { await navigator.clipboard.writeText(link); toast("Transfer link copied: send it to your other device"); }
+      catch { prompt("Copy this transfer link:", link); }
+    } else if (a === "tshare") {
+      try { await navigator.share({ title: "Candle Lab practice wallet", url: link }); } catch {}
+    } else if (a === "tqr") {
+      const el = $$("#w-qr");
+      if (link.length > 2300) { el.innerHTML = `<div class="w-sub">Too much history for a QR code. Use "Copy transfer link" instead.</div>`; return; }
+      try { await loadQR(); } catch { el.innerHTML = `<div class="w-sub">Couldn't load the QR maker. Use "Copy transfer link" instead.</div>`; return; }
+      el.innerHTML = "";
+      new QRCode(el, { text: link, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
+    } else if (a === "timport") {
+      const code = $$(".w-code")?.value || "";
+      if (code.trim()) importCode(code);
+    }
+  }
+
   function bind() {
     document.addEventListener("click", async (e) => {
       const t = e.target.closest("[data-w],[data-wt],[data-wc],[data-ws],[data-wa],[data-sell],[data-sellpos],[data-wm],[data-wv],#w-fab,[data-wbet]");
@@ -277,6 +358,7 @@
       if (a === "close") ui.open = false;
       if (a === "claim") return claim();
       if (a === "buy") return buyCoin().catch(() => toast("Couldn't reach Coinbase; try again."));
+      if (a && a.startsWith("t") && ["tlink", "tshare", "tqr", "timport"].includes(a)) return transferAction(a);
       if (a === "place") return placeBet().catch(() => toast("Couldn't reach Coinbase; try again."));
       if (a === "reset" && confirm("Reset your practice wallet? This clears your balance and history.")) { W = { balance: 0, lastClaim: null, claims: 0, bets: [], positions: [] }; saveW(); }
       if (t.dataset.wt) ui.tab = t.dataset.wt;
@@ -305,6 +387,7 @@
       const coins = new Set([ui.coin, ...W.bets.filter((b) => b.status === "open").map((b) => b.coin),
                              ...W.positions.filter((x) => x.status === "open").map((x) => x.coin)]);
       await Promise.all([...coins].map((c) => refreshMarket(c).catch(() => {})));
+      if (ui.tab === "transfer") return;
       if (!document.activeElement?.classList?.contains("w-amt")) draw(); else drawQuote();
     }
   }
@@ -315,11 +398,11 @@
     const panel = document.createElement("div");
     panel.id = "w-panel"; panel.hidden = true; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Practice wallet");
     document.body.append(fab, panel);
-    bind(); draw(); settle();
+    bind(); draw(); settle(); checkHashImport();
     setInterval(tick, 3000);                       // live prices while the wallet is open
     setInterval(() => { settle(); if (!ui.open) draw(); }, 20000);
-    setInterval(() => { if (ui.open && !document.activeElement?.classList?.contains("w-amt")) draw(); }, 1000);  // countdown
+    setInterval(() => { if (ui.open && ui.tab !== "transfer" && !document.activeElement?.classList?.contains("w-amt")) draw(); }, 1000);  // countdown
   }
-  window.CandleWallet = { claim };
+  window.CandleWallet = { claim, packWallet };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

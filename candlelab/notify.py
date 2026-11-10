@@ -77,6 +77,7 @@ def send_strict_alerts(window_ts):
         s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
         if s and s.get("calls"):
             lines.append(f"Strict mode backtest on {name}: right {s['hit_rate'] * 100:.1f}% of {s['calls']:,} picks")
+        lines.append("Rule: bet only if your side costs 55¢ or less with 5+ min left; otherwise skip.")
         lines.append("Practice only. Not financial advice.")
         try:
             if _post(f"⚡ {name}: bet {side} (Strict signal)", "\n".join(lines),
