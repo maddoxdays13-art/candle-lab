@@ -43,6 +43,23 @@ def _local(ts):
     return datetime.fromtimestamp(int(ts), tz=TZ).strftime("%-I:%M %p")
 
 
+def size_advice(price, win_rate):
+    """How much to bet on a Strict signal, as a multiple of your normal bet.
+    edge = win chance - price - Kalshi fee (dollars per $1-payout contract).
+    Returns (label, multiplier, edge); multiplier 0 means skip."""
+    fee = 0.07 * price * (1 - price)
+    edge = win_rate - price - fee
+    if price > 0.55 or edge <= 0:
+        return "SKIP: price too high for this signal", 0, edge
+    if price < 0.40:
+        return "1x (normal): unusually cheap, the move may already be against you; don't size up", 1, edge
+    if edge >= 0.06:
+        return "2x (max)", 2, edge
+    if edge >= 0.03:
+        return "1.5x", 1.5, edge
+    return "1x (normal)", 1, edge
+
+
 def _autopilot_bet(coin, window_ts):
     try:
         from . import autopilot
@@ -81,19 +98,26 @@ def send_strict_alerts(window_ts):
         name, side = r.coin.replace("-USD", ""), r.direction.upper()
         lines = [f"Window {_local(window_ts)}–{_local(window_ts + 900)} ET · closes in {left // 60}:{left % 60:02d}"]
         yb = ya = None
+        size = ""
+        s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
+        win = s["hit_rate"] if s and s.get("calls") else 0.54
         if r.coin in ks.index and pd.notna(ks.at[r.coin, "yes_bid"]):
             yb, ya = float(ks.at[r.coin, "yes_bid"]), float(ks.at[r.coin, "yes_ask"])
-            lines.append(f"Kalshi crowd: Up {round(ya * 100)}¢ / Down {round((1 - yb) * 100)}¢")
-        s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
+            na = ks.at[r.coin, "no_ask"] if "no_ask" in ks.columns else None
+            q = ya if r.direction == "up" else (float(na) if pd.notna(na) else 1 - yb)
+            label, mult, edge = size_advice(q, win)
+            size = " · SKIP" if mult == 0 else f" · {mult:g}x"
+            lines.append(f"Your side ({side}) costs {round(q * 100)}¢ on Kalshi")
+            lines.append(f"Bet size: {label}" + ("" if mult == 0 else f" (edge ≈ +{edge * 100:.0f}¢ per $1 contract)"))
         if s and s.get("calls"):
             lines.append(f"Strict mode backtest on {name}: right {s['hit_rate'] * 100:.1f}% of {s['calls']:,} picks")
         ap = _autopilot_bet(r.coin, window_ts)
         if ap is not None:
             lines.append(f"🌙 Autopilot bet ${ap['cost']:.2f} {ap['side'].upper()} at {round(ap['price'] * 100)}¢ (practice)")
-        lines.append("Rule: bet only if your side costs 55¢ or less with 5+ min left; otherwise skip.")
+        lines.append("Seeing this late? Re-check the price: still 55¢ or less with 5+ min left, or skip. Never more than 2x.")
         lines.append("Practice only. Not financial advice.")
         try:
-            if _post(f"⚡ {name}: bet {side} (Strict signal)", "\n".join(lines),
+            if _post(f"⚡ {name}: bet {side}{size} (Strict signal)", "\n".join(lines),
                      tags="zap," + ("chart_with_upwards_trend" if side == "UP" else "chart_with_downwards_trend")):
                 rows.append({"sent_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"), "coin": r.coin,
                              "candle_ts": window_ts, "direction": r.direction, "kalshi_yes_bid": yb, "kalshi_yes_ask": ya})

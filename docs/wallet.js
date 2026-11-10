@@ -208,9 +208,7 @@
         <div class="w-row">${[1, 5, 10, 25].map((v) => `<button class="chip" data-wa="${v}" aria-pressed="${+ui.stake === v}">$${v}</button>`).join("")}
           <input class="w-amt" type="number" min="1" step="1" value="${ui.stake}" aria-label="Stake in dollars"></div>
         <div class="w-sub w-quote">${ask ? `${n} contract${n === 1 ? "" : "s"} × ${Math.round(ask * 100)}¢ + fee ${(fee(ask) * 100).toFixed(2)}¢ = <b>${usd(n * per)}</b> · pays <b>${usd(n)}</b> if ${ui.side.toUpperCase()} wins` : ""}</div>
-        ${ask ? `<div class="w-rule ${ask <= 0.55 && left >= 300 ? "ok" : "bad"}">${ask <= 0.55 && left >= 300
-          ? `✓ Good spot for the Strict rule: ${Math.round(ask * 100)}¢ is 55¢ or less, with 5+ minutes left`
-          : `⚠ Strict rule says skip: ${ask > 0.55 ? `${Math.round(ask * 100)}¢ is above 55¢` : "less than 5 minutes left"}`}</div>` : ""}
+        ${ask ? sizeHint(ask, left, ui.coin) : ""}
         <button class="w-place ${ui.side}" data-w="place" ${left != null && left < CUTOFF ? "disabled" : ""}>${left != null && left < CUTOFF ? "Window closing…" : `Buy ${ui.side.toUpperCase()}`}</button>
         <div class="w-fine">Simulated market from Coinbase's live price (real Kalshi/Robinhood prices differ). Settles on Coinbase's 15-minute candle: UP wins if it closes at or above the open. Kalshi-style fees on every buy and sell.</div>`)
       : ui.tab === "transfer" ? transferHTML()
@@ -268,6 +266,25 @@
           ${val != null ? ` · worth after fee <b class="${val >= x.cost ? "pos" : "neg"}">${usd(val)}</b>` : ""}</div></div>
         ${val != null ? `<button class="w-sell" data-sellpos="${x.id}">Sell ${usd(val)}</button>` : ""}</div>`;
     }).join("");
+  }
+
+  /* ---------- Strict-rule bet sizing (same rule as the phone alerts) ---------- */
+  function sizeAdvice(q, win) {
+    const edge = win - q - fee(q);
+    if (q > 0.55 || edge <= 0) return { mult: 0, label: "Skip: price too high for this signal", edge };
+    if (q < 0.40) return { mult: 1, label: "1× (normal): unusually cheap, the move may already be against you", edge };
+    if (edge >= 0.06) return { mult: 2, label: "2× your normal bet (max)", edge };
+    if (edge >= 0.03) return { mult: 1.5, label: "1.5× your normal bet", edge };
+    return { mult: 1, label: "1× (your normal bet)", edge };
+  }
+  function sizeHint(q, left, coin) {
+    const st = typeof state !== "undefined" ? state : null;
+    const s = st?.data?.backtest?.coins?.[coin]?.models?.strict?.summary;
+    const win = s?.calls ? s.hit_rate : 0.54;
+    if (left != null && left < 300) return `<div class="w-rule bad">⚠ Strict rule says skip: less than 5 minutes left</div>`;
+    const a = sizeAdvice(q, win);
+    return `<div class="w-rule ${a.mult ? "ok" : "bad"}">${a.mult ? "✓" : "⚠"} If this is a ⚡ Strict signal: <b>${a.label}</b>
+      <span style="font-weight:600">· ${Math.round(q * 100)}¢ vs a ${Math.round(win * 100)}% win chance → edge ${a.edge >= 0 ? "+" : ""}${(a.edge * 100).toFixed(1)}¢ per contract</span></div>`;
   }
 
   /* ---------- night autopilot (runs on GitHub; read-only here) ---------- */

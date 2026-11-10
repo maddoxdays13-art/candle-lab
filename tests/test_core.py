@@ -282,3 +282,12 @@ def test_autopilot(tmp_path, monkeypatch):
     df = autopilot.load()
     assert df.iloc[0]["status"] == "won"
     assert autopilot.balance(df) == pytest.approx(100 - b["cost"] + 9)
+
+
+def test_size_advice():
+    from candlelab.notify import size_advice
+    assert size_advice(0.43, 0.546)[1] == 2        # 43c for a 54.6% signal: ~+10c edge -> max size
+    assert size_advice(0.49, 0.546)[1] == 1.5      # ~+3.9c edge
+    assert size_advice(0.52, 0.546)[1] == 1        # ~+0.9c edge
+    assert size_advice(0.56, 0.546)[1] == 0        # above 55c -> skip
+    assert size_advice(0.35, 0.546)[1] == 1        # suspiciously cheap -> don't size up
