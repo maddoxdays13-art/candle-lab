@@ -1,0 +1,17 @@
+name: Test alert
+
+# Sends a test notification to your ntfy channel (Actions tab -> Test alert -> Run workflow).
+on:
+  workflow_dispatch:
+
+env:
+  NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: python -m candlelab.notify --test
