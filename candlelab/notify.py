@@ -43,6 +43,16 @@ def _local(ts):
     return datetime.fromtimestamp(int(ts), tz=TZ).strftime("%-I:%M %p")
 
 
+def _autopilot_bet(coin, window_ts):
+    try:
+        from . import autopilot
+        df = autopilot.load()
+        hit = df[(df["coin"] == coin) & (df["candle_ts"].astype(int) == window_ts)]
+        return None if hit.empty else hit.iloc[0].to_dict()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def send_strict_alerts(window_ts):
     """Alert for every coin whose call for the window opening at window_ts is a Strict signal."""
     from . import kalshi, site
@@ -77,6 +87,9 @@ def send_strict_alerts(window_ts):
         s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
         if s and s.get("calls"):
             lines.append(f"Strict mode backtest on {name}: right {s['hit_rate'] * 100:.1f}% of {s['calls']:,} picks")
+        ap = _autopilot_bet(r.coin, window_ts)
+        if ap is not None:
+            lines.append(f"🌙 Autopilot bet ${ap['cost']:.2f} {ap['side'].upper()} at {round(ap['price'] * 100)}¢ (practice)")
         lines.append("Rule: bet only if your side costs 55¢ or less with 5+ min left; otherwise skip.")
         lines.append("Practice only. Not financial advice.")
         try:

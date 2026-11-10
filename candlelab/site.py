@@ -250,10 +250,19 @@ def build_live():
         "recent": recent,
         "kalshi": kalshi_section(df),
         "strict": strict_cfg(),
+        "autopilot": _autopilot_summary(),
     }
     out["coin_compare"] = coin_compare(out["coins"])
     write_calibration_csv(out["coins"], LIVE_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "live.json", clean_nans(out))
+
+
+def _autopilot_summary():
+    try:
+        from . import autopilot
+        return autopilot.summary()
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
 
 
 def build_backtest():

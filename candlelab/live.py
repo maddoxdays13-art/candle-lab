@@ -158,6 +158,13 @@ def main():
         kalshi.update(data.last_closed_open_ts() + GRANULARITY)
     except Exception as e:  # noqa: BLE001
         print(f"Kalshi logging skipped: {e}")
+    # Night autopilot: practice bets on Strict signals overnight (fake money); never fatal.
+    try:
+        from . import autopilot
+        print("Autopilot:")
+        autopilot.run(data.last_closed_open_ts() + GRANULARITY)
+    except Exception as e:  # noqa: BLE001
+        print(f"Autopilot skipped: {e}")
     # Phone alerts for Strict-mode signals (needs the NTFY_TOPIC secret); never fatal.
     try:
         from . import notify

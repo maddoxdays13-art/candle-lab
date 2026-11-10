@@ -258,3 +258,27 @@ def test_strict_alerts(tmp_path, monkeypatch):
     assert notify.send_strict_alerts(w) == 1
     assert "BTC: bet DOWN" in sent[0][0]
     assert notify.send_strict_alerts(w) == 0  # never twice for the same window
+
+
+def test_autopilot(tmp_path, monkeypatch):
+    from candlelab import autopilot, kalshi
+    monkeypatch.setattr(autopilot, "LEDGER", tmp_path / "autopilot.csv")
+    monkeypatch.setattr(autopilot, "LIVE_DIR", tmp_path)
+    w = 1_800_000_000 // 900 * 900
+    # pretend it's night and BTC has a DOWN strict signal; ETH an UP signal that's too expensive
+    monkeypatch.setattr(autopilot, "in_hours", lambda t, c: True)
+    monkeypatch.setattr(autopilot, "strict_signals", lambda t: [("BTC-USD", "down"), ("ETH-USD", "up")])
+    ks = pd.DataFrame({"coin": ["BTC-USD", "ETH-USD"], "candle_ts": [w, w], "ticker": ["a", "b"], "logged_at": "", "secs_into_window": 80,
+                       "yes_bid": [0.51, 0.60], "yes_ask": [0.53, 0.62], "no_bid": [0.47, 0.38], "no_ask": [0.49, 0.40],
+                       "last": 0.5, "strike": 1.0, "result": [None, None], "final_value": None})
+    monkeypatch.setattr(kalshi, "load", lambda: ks)
+    placed = autopilot.run(w)
+    assert list(placed) == ["BTC-USD"]                       # ETH: 'up' costs 62c > 55c -> skipped
+    b = placed["BTC-USD"]
+    assert b["price"] == 0.49 and b["contracts"] == 9       # $5 / (0.49 + fee) -> 9 contracts
+    assert autopilot.balance(autopilot.load()) == pytest.approx(100 - b["cost"])
+    ks.loc[0, "result"] = "no"                              # BTC went down -> DOWN wins
+    autopilot.run(w + 900)
+    df = autopilot.load()
+    assert df.iloc[0]["status"] == "won"
+    assert autopilot.balance(df) == pytest.approx(100 - b["cost"] + 9)

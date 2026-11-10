@@ -193,7 +193,7 @@
         <button class="w-x" data-w="close" aria-label="Close">✕</button></div></div>
       <div class="w-bal"><div><div class="w-sub">Balance</div><div class="w-big">${usd(W.balance)}</div></div>
         <button class="w-claim" data-w="claim" ${canClaim ? "" : "disabled"}>${canClaim ? "🎁 Claim free $100" : "✓ Claimed today"}</button></div>
-      <div class="w-tabs">${[["bet", "Bet"], ["open", `Open (${open.length + W.positions.filter((x) => x.status === "open").length})`], ["history", "History"]].map(([k2, l]) =>
+      <div class="w-tabs">${[["bet", "Bet"], ["open", `Open (${open.length + W.positions.filter((x) => x.status === "open").length})`], ["history", "History"], ["auto", "🌙 Auto"]].map(([k2, l]) =>
         `<button data-wt="${k2}" aria-pressed="${ui.tab === k2}">${l}</button>`).join("")}</div>
       ${ui.tab === "bet" ? modeToggle() + (ui.mode === "trade" ? tradeHTML() : `
         <div class="w-row">${COINS_W.map((c) => `<button class="chip" data-wc="${c}" aria-pressed="${ui.coin === c}">${c.replace("-USD", "")}</button>`).join("")}</div>
@@ -214,6 +214,7 @@
         <button class="w-place ${ui.side}" data-w="place" ${left != null && left < CUTOFF ? "disabled" : ""}>${left != null && left < CUTOFF ? "Window closing…" : `Buy ${ui.side.toUpperCase()}`}</button>
         <div class="w-fine">Simulated market from Coinbase's live price (real Kalshi/Robinhood prices differ). Settles on Coinbase's 15-minute candle: UP wins if it closes at or above the open. Kalshi-style fees on every buy and sell.</div>`)
       : ui.tab === "transfer" ? transferHTML()
+      : ui.tab === "auto" ? autopilotHTML()
       : ui.tab === "open" ? positionsHTML() + (open.length ? open.map((b) => {
           const mm = mkt[b.coin], q = mm?.t === b.t ? bidFor(mm, b.side) : null, val = q != null ? b.n * (q - fee(q)) : null;
           return `<div class="w-bet"><div><b>${b.coin.replace("-USD", "")} ${b.side === "up" ? "▲ UP" : "▼ DOWN"}</b> · ${b.n} @ ${Math.round(b.price * 100)}¢
@@ -267,6 +268,27 @@
           ${val != null ? ` · worth after fee <b class="${val >= x.cost ? "pos" : "neg"}">${usd(val)}</b>` : ""}</div></div>
         ${val != null ? `<button class="w-sell" data-sellpos="${x.id}">Sell ${usd(val)}</button>` : ""}</div>`;
     }).join("");
+  }
+
+  /* ---------- night autopilot (runs on GitHub; read-only here) ---------- */
+  function autopilotHTML() {
+    const st = typeof state !== "undefined" ? state : null;
+    const a = st?.data?.live?.autopilot;
+    if (!a || a.error) return `<div class="w-sub w-empty">Autopilot data isn't available yet.</div>`;
+    const c = a.config, h = (x) => (x % 12 || 12) + (x < 12 ? " am" : " pm");
+    const et = (t) => new Date(t * 1000).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return `<div class="w-sub" style="margin-bottom:8px">Bets <b>$${c.stake}</b> on every ⚡ Strict signal from <b>${h(c.start_hour_et)} to ${h(c.end_hour_et)} Eastern</b>
+        at Kalshi's real price (only if ${Math.round(c.max_price * 100)}¢ or less), settled by Kalshi's real result. Runs on GitHub, so it works while you sleep.
+        ${c.enabled ? "" : "<b>Currently turned off.</b>"} Shared: everyone who opens Candle Lab sees this same account.</div>
+      <div class="w-bal"><div><div class="w-sub">Autopilot balance</div><div class="w-big">${usd(a.balance)}</div></div>
+        <div class="w-sub" style="text-align:right">started with ${usd(c.start_balance)}<br>Record <b>${a.wins}–${a.losses}</b>${a.open ? ` · ${a.open} open` : ""}<br>
+        Net <b class="${a.net >= 0 ? "pos" : "neg"}">${usd(a.net)}</b>${a.roi == null ? "" : ` · ROI ${(a.roi * 100).toFixed(1)}%`}</div></div>
+      ${a.recent.length ? a.recent.map((b) => {
+        const pl = b.status === "open" ? null : (b.proceeds || 0) - b.cost;
+        return `<div class="w-bet ${b.status === "won" ? "won" : b.status === "lost" ? "lost" : ""}"><div><b>${b.coin.replace("-USD", "")} ${b.side === "up" ? "▲ UP" : "▼ DOWN"}</b> · ${b.contracts} @ ${Math.round(b.price * 100)}¢
+          <div class="w-sub">${et(b.candle_ts)} ET window · cost ${usd(b.cost)}</div></div>
+          <div class="w-res">${b.status === "open" ? "OPEN" : b.status === "won" ? "✓ WON" : "✗ LOST"}<br>${pl == null ? "" : `<b class="${pl >= 0 ? "pos" : "neg"}">${usd(pl)}</b>`}</div></div>`;
+      }).join("") : `<div class="w-sub w-empty">No autopilot bets yet. The first ones come tonight, if a Strict signal fires between ${h(c.start_hour_et)} and ${h(c.end_hour_et)} Eastern.</div>`}`;
   }
 
   /* ---------- transfer between devices ---------- */
@@ -401,7 +423,7 @@
     bind(); draw(); settle(); checkHashImport();
     setInterval(tick, 3000);                       // live prices while the wallet is open
     setInterval(() => { settle(); if (!ui.open) draw(); }, 20000);
-    setInterval(() => { if (ui.open && ui.tab !== "transfer" && !document.activeElement?.classList?.contains("w-amt")) draw(); }, 1000);  // countdown
+    setInterval(() => { if (ui.open && !["transfer", "auto"].includes(ui.tab) && !document.activeElement?.classList?.contains("w-amt")) draw(); }, 1000);  // countdown
   }
   window.CandleWallet = { claim, packWallet };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
