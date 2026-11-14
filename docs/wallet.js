@@ -347,7 +347,13 @@
       <div class="sig-btns">
         ${closed ? "" : `<button class="w-place ${s.d}" data-sig="practice">Practice bet ${s.d.toUpperCase()}</button>`}
         <a class="chip sig-k" href="${kalshiUrl(s.c, s.t, s.k)}" target="_blank" rel="noopener">Open this ${name} window on Kalshi ↗</a>
+        <div class="sig-alt">
+          <a class="chip" href="https://kalshi.com/category/crypto/frequency/fifteen_min" target="_blank" rel="noopener">All 15-min crypto markets ↗</a>
+          <button class="chip" data-sig="copy">📋 Copy link</button>
+        </div>
       </div>
+      <div class="w-fine">If Kalshi says "something went wrong", the Kalshi app is probably grabbing the link. Try <b>All 15-min crypto markets</b> and tap ${name},
+        or tap <b>Copy link</b> and paste it into Safari or Chrome.</div>
       <div class="w-fine">"Price now" is estimated from Coinbase's live price; Kalshi's real price can differ. Practice only, not financial advice.</div>
     </div>`;
   }
@@ -469,6 +475,12 @@
     document.addEventListener("click", async (e) => {
       const sg = e.target.closest("[data-sig]");
       if (sg) {
+        if (sg.dataset.sig === "copy" && sig) {
+          const url = kalshiUrl(sig.c, sig.t, sig.k);
+          (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
+            () => toast("Kalshi link copied: paste it into Safari or Chrome"), () => prompt("Copy this Kalshi link:", url));
+          return;
+        }
         if (sg.dataset.sig === "practice" && sig) {
           const mult = sig.m && sig.m > 0 ? sig.m : 1;
           Object.assign(ui, { open: true, tab: "bet", mode: "predict", coin: sig.c, side: sig.d, stake: Math.max(1, Math.round((ui.stake || 5) * mult)) });
