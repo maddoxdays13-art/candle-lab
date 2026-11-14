@@ -351,3 +351,29 @@ footer.foot { padding-bottom: 80px; }
 .w-rule.ok { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
 .w-rule.bad { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 tr.allrow td { background: color-mix(in srgb, var(--s-strict) 7%, transparent); font-weight: 700; }
+
+/* ---------- signal card (from a phone alert) ---------- */
+#sig { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.65); display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px 12px; overflow-y: auto; backdrop-filter: blur(3px); }
+#sig[hidden] { display: none; }
+.sig-card { width: min(440px, 100%); background: var(--panel); border: 1px solid color-mix(in srgb, var(--s-strict) 50%, var(--line)); border-radius: 16px;
+  padding: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 24px 50px -10px rgba(0,0,0,.9), 0 0 30px -12px var(--s-strict); }
+.sig-top { display: flex; justify-content: space-between; align-items: center; }
+.sig-badge { font: 800 12px "Barlow", sans-serif; letter-spacing: .6px; color: #04110f; background: var(--s-strict); padding: 4px 10px; border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 14px -4px var(--s-strict); }
+.sig-head { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 10px; }
+.sig-coin { font: 800 34px "Barlow", sans-serif; }
+.sig-dir { font: 800 26px "Barlow", sans-serif; padding: 6px 14px; border-radius: 10px;
+  background-image: linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,0) 55%, rgba(0,0,0,.15)); }
+.sig-dir.up { background-color: var(--good); color: #0A0A0B; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 18px -4px var(--good); }
+.sig-dir.down { background-color: var(--bad); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 0 18px -4px var(--bad); }
+.sig-do { font-size: 16px; line-height: 1.4; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--good) 10%, var(--bar));
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); margin-bottom: 10px; }
+.sig-do.bad { background: color-mix(in srgb, var(--warn) 10%, var(--bar)); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.sig-rows { display: grid; gap: 6px; margin-bottom: 10px; }
+.sig-rows > div { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.sig-rows span { color: var(--muted); }
+.sig-rows b { text-align: right; }
+.sig-note { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 4px 0 12px; }
+.sig-btns { display: grid; gap: 8px; }
+.sig-k { text-align: center; text-decoration: none; padding: 10px; font-size: 14px; }

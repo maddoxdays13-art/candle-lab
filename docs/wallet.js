@@ -292,6 +292,72 @@
       <div style="font-weight:500;opacity:.85;margin-top:3px">${basis}</div></div>`;
   }
 
+  /* ---------- Signal card: what you see after tapping a phone alert ---------- */
+  const KALSHI_URL = { "BTC-USD": "https://kalshi.com/markets/kxbtc15m", "ETH-USD": "https://kalshi.com/markets/kxeth15m",
+                       "SOL-USD": "https://kalshi.com/markets/kxsol15m" };
+  let sig = null, sigTimer = null;
+  function parseSignal() {
+    if (!location.hash.startsWith("#signal=")) return null;
+    try {
+      let b = location.hash.slice(8).replace(/-/g, "+").replace(/_/g, "/");
+      b += "=".repeat((4 - (b.length % 4)) % 4);
+      return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), (c) => c.charCodeAt(0))));
+    } catch { return null; }
+  }
+  const sideWord = (d) => (d === "up" ? "▲ UP" : "▼ DOWN");
+  const escH = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function sigHTML() {
+    const s = sig, name = s.c.replace("-USD", ""), now = Date.now() / 1000;
+    const left = Math.round(s.t + 900 - now), closed = left <= 0;
+    const at = (x) => new Date(x * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const m = mkt[s.c], liveQ = m?.upAsk && m.t === s.t ? askFor(m, s.d) : null;
+    const liveA = liveQ != null ? sizeAdvice(liveQ, s.w) : null;
+    const doIt = s.m == null ? `Bet <b>${sideWord(s.d)}</b> on <b>${name}</b>, your normal size (no Kalshi price was logged)`
+      : s.m === 0 ? `<b>Skip this one.</b> ${escH(s.l)}`
+      : `Bet <b>${sideWord(s.d)}</b> on <b>${name}</b>: <b>${escH(s.l)}</b>`;
+    const status = closed ? `<div class="w-rule bad">This 15-minute window has closed; wait for the next alert.</div>`
+      : left < 300 ? `<div class="w-rule bad">⚠ Less than 5 minutes left: the rule says skip.</div>`
+      : liveA && liveA.mult === 0 ? `<div class="w-rule bad">⚠ The price has likely moved too far since the alert: check Kalshi, and skip if your side costs 53¢ or more.</div>`
+      : `<div class="w-rule ok">✓ Still in time. Check the real price on Kalshi: bet only if your side is 52¢ or less.</div>`;
+    return `<div class="sig-card" role="dialog" aria-label="Strict signal details">
+      <div class="sig-top"><span class="sig-badge">⚡ STRICT SIGNAL</span><button class="w-x" data-sig="close" aria-label="Close">✕</button></div>
+      <div class="sig-head"><div class="sig-coin">${name}</div><div class="sig-dir ${s.d}">${sideWord(s.d)}</div></div>
+      <div class="sig-do ${s.m === 0 ? "bad" : ""}">${doIt}</div>
+      <div class="sig-rows">
+        <div><span>Window</span><b>${at(s.t)}–${at(s.t + 900)}</b></div>
+        <div><span>Time left</span><b class="${closed || left < 300 ? "neg" : ""}">${closed ? "Closed" : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`}</b></div>
+        ${s.q != null ? `<div><span>${sideWord(s.d)} cost at the alert</span><b>${Math.round(s.q * 100)}¢ on Kalshi</b></div>` : ""}
+        ${s.e != null && s.m !== 0 ? `<div><span>Edge at that price</span><b class="pos">+${(s.e * 100).toFixed(1)}¢ per $1 contract</b></div>` : ""}
+        ${!closed ? `<div><span>Price now (estimate)</span><b>${liveQ != null ? `~${Math.round(liveQ * 100)}¢ → ${liveA.mult ? liveA.mult + "×" : "skip"}` : "checking…"}</b></div>` : ""}
+        ${s.bt ? `<div><span>Strict mode on ${name}</span><b>right ${(s.bt[0] * 100).toFixed(1)}% of ${s.bt[1].toLocaleString()} backtest picks</b></div>` : ""}
+        ${s.ap ? `<div><span>🌙 Autopilot</span><b>bet $${s.ap[0].toFixed(2)} at ${Math.round(s.ap[1] * 100)}¢ (practice)</b></div>` : ""}
+      </div>
+      ${status}
+      <div class="sig-note">${escH(s.b || "")}</div>
+      <div class="sig-btns">
+        ${closed ? "" : `<button class="w-place ${s.d}" data-sig="practice">Practice bet ${s.d.toUpperCase()}</button>`}
+        <a class="chip sig-k" href="${KALSHI_URL[s.c]}" target="_blank" rel="noopener">Open ${name} on Kalshi ↗</a>
+      </div>
+      <div class="w-fine">"Price now" is estimated from Coinbase's live price; Kalshi's real price can differ. Practice only, not financial advice.</div>
+    </div>`;
+  }
+  function drawSig() { const el = $$("#sig"); if (el && sig) el.innerHTML = sigHTML(); }
+  function openSignal(s) {
+    sig = s;
+    let el = $$("#sig");
+    if (!el) { el = document.createElement("div"); el.id = "sig"; document.body.appendChild(el); }
+    el.hidden = false; drawSig();
+    refreshMarket(s.c).then(drawSig).catch(() => {});
+    clearInterval(sigTimer);
+    let n = 0;
+    sigTimer = setInterval(() => { if (++n % 3 === 0) refreshMarket(s.c).then(drawSig).catch(() => {}); else drawSig(); }, 1000);
+  }
+  function closeSignal() {
+    clearInterval(sigTimer); sig = null;
+    const el = $$("#sig"); if (el) el.hidden = true;
+    if (location.hash.startsWith("#signal=")) history.replaceState(null, "", location.pathname + location.search);
+  }
+
   /* ---------- night autopilot (runs on GitHub; read-only here) ---------- */
   function autopilotHTML() {
     const st = typeof state !== "undefined" ? state : null;
@@ -391,6 +457,16 @@
 
   function bind() {
     document.addEventListener("click", async (e) => {
+      const sg = e.target.closest("[data-sig]");
+      if (sg) {
+        if (sg.dataset.sig === "practice" && sig) {
+          const mult = sig.m && sig.m > 0 ? sig.m : 1;
+          Object.assign(ui, { open: true, tab: "bet", mode: "predict", coin: sig.c, side: sig.d, stake: Math.max(1, Math.round((ui.stake || 5) * mult)) });
+          closeSignal(); tick(); draw();
+        } else closeSignal();
+        return;
+      }
+      if (e.target.id === "sig") { closeSignal(); return; }
       const t = e.target.closest("[data-w],[data-wt],[data-wc],[data-ws],[data-wa],[data-sell],[data-sellpos],[data-wm],[data-wv],#w-fab,[data-wbet]");
       if (!t) return;
       if (t.id === "w-fab") { ui.open = !ui.open; if (ui.open) tick(); draw(); return; }
@@ -443,6 +519,8 @@
     panel.id = "w-panel"; panel.hidden = true; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Practice wallet");
     document.body.append(fab, panel);
     bind(); draw(); settle(); checkHashImport();
+    const s0 = parseSignal(); if (s0) openSignal(s0);
+    window.addEventListener("hashchange", () => { const s1 = parseSignal(); if (s1) openSignal(s1); });
     setInterval(tick, 3000);                       // live prices while the wallet is open
     setInterval(() => { settle(); if (!ui.open) draw(); }, 20000);
     setInterval(() => { if (ui.open && !["transfer", "auto"].includes(ui.tab) && !document.activeElement?.classList?.contains("w-amt")) draw(); }, 1000);  // countdown

@@ -7,6 +7,8 @@ The channel name comes from the NTFY_TOPIC environment variable (a GitHub secret
     python -m candlelab.notify --test     send a test notification
 """
 import argparse
+import base64
+import json
 import os
 import time
 from datetime import datetime, timezone
@@ -22,14 +24,24 @@ TZ = ZoneInfo("America/New_York")
 ALERT_COLS = ["sent_at", "coin", "candle_ts", "direction", "kalshi_yes_bid", "kalshi_yes_ask"]
 
 
-def _post(title, body, tags="zap", priority="high"):
+def signal_link(details):
+    """Candle Lab link that opens a Signal card. The details ride inside the link, so the card works
+    the moment you tap, even before the site's data has refreshed."""
+    raw = json.dumps(details, separators=(",", ":")).encode()
+    return SITE + "#signal=" + base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _post(title, body, tags="zap", priority="high", click=None):
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     if not topic:
         print("  alerts: NTFY_TOPIC not set; skipping")
         return False
     prio = {"default": 3, "high": 4, "urgent": 5}.get(priority, 3)
+    click = click or SITE
     r = requests.post("https://ntfy.sh/", json={"topic": topic, "title": title, "message": body,
-                                                "tags": tags.split(","), "priority": prio, "click": SITE}, timeout=15)
+                                                "tags": tags.split(","), "priority": prio, "click": click,
+                                                "actions": [{"action": "view", "label": "Open signal card", "url": click}]},
+                      timeout=15)
     r.raise_for_status()
     return True
 
@@ -112,9 +124,9 @@ def send_strict_alerts(window_ts):
             continue
         left = int(window_ts + 900 - time.time())
         name, side = r.coin.replace("-USD", ""), r.direction.upper()
-        lines = [f"Window {_local(window_ts)}–{_local(window_ts + 900)} ET · closes in {left // 60}:{left % 60:02d}"]
-        yb = ya = None
-        size = ""
+        lines = []
+        yb = ya = q = None
+        size, price_txt, label, mult, edge = "", "", "", None, None
         s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
         lv = (live.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary") or {}
         win, basis = win_rate_for(s, lv)
@@ -123,9 +135,11 @@ def send_strict_alerts(window_ts):
             na = ks.at[r.coin, "no_ask"] if "no_ask" in ks.columns else None
             q = ya if r.direction == "up" else (float(na) if pd.notna(na) else 1 - yb)
             label, mult, edge = size_advice(q, win)
-            size = " · SKIP" if mult == 0 else f" · {mult:g}x"
-            lines.append(f"Your side ({side}) costs {round(q * 100)}¢ on Kalshi")
-            lines.append(f"Bet size: {label}" + ("" if mult == 0 else f" (edge ≈ +{edge * 100:.0f}¢ per $1 contract)"))
+            size = " · SKIP" if mult == 0 else f" · {mult:g}×"
+            price_txt = f" · {round(q * 100)}¢"
+            lines.append(("SKIP this one: " + label) if mult == 0 else
+                         f"Do: bet {side} on {name}, {label} (your side costs {round(q * 100)}¢, edge ≈ +{edge * 100:.0f}¢)")
+        lines.append(f"Window {_local(window_ts)}–{_local(window_ts + 900)} ET · closes in {left // 60}:{left % 60:02d}")
         if s and s.get("calls"):
             lines.append(f"Strict mode backtest on {name}: right {s['hit_rate'] * 100:.1f}% of {s['calls']:,} picks")
         ap = _autopilot_bet(r.coin, window_ts)
@@ -135,7 +149,11 @@ def send_strict_alerts(window_ts):
         lines.append("Seeing this late? Re-check the price: still 55¢ or less with 5+ min left, or skip. Never more than 2x.")
         lines.append("Practice only. Not financial advice.")
         try:
-            if _post(f"⚡ {name}: bet {side}{size} (Strict signal)", "\n".join(lines),
+            details = {"c": r.coin, "d": r.direction, "t": int(window_ts), "q": q, "y": yb, "a": ya, "w": round(win, 4),
+                       "m": mult, "e": None if edge is None else round(edge, 4), "l": label, "b": basis,
+                       "bt": None if not (s and s.get("calls")) else [round(s["hit_rate"], 4), int(s["calls"])],
+                       "ap": None if ap is None else [round(float(ap["cost"]), 2), round(float(ap["price"]), 2)]}
+            if _post(f"⚡ {name} {side}{size}{price_txt} (Strict)", "\n".join(lines), click=signal_link(details),
                      tags="zap," + ("chart_with_upwards_trend" if side == "UP" else "chart_with_downwards_trend")):
                 rows.append({"sent_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"), "coin": r.coin,
                              "candle_ts": window_ts, "direction": r.direction, "kalshi_yes_bid": yb, "kalshi_yes_ask": ya})

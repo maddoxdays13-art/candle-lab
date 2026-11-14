@@ -256,7 +256,7 @@ def test_strict_alerts(tmp_path, monkeypatch):
     sent = []
     monkeypatch.setattr(notify, "_post", lambda title, body, **k: sent.append((title, body)) or True)
     assert notify.send_strict_alerts(w) == 1
-    assert "BTC: bet DOWN" in sent[0][0]
+    assert "BTC DOWN" in sent[0][0]
     assert notify.send_strict_alerts(w) == 0  # never twice for the same window
 
 
