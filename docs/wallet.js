@@ -293,8 +293,18 @@
   }
 
   /* ---------- Signal card: what you see after tapping a phone alert ---------- */
-  const KALSHI_URL = { "BTC-USD": "https://kalshi.com/markets/kxbtc15m", "ETH-USD": "https://kalshi.com/markets/kxeth15m",
-                       "SOL-USD": "https://kalshi.com/markets/kxsol15m" };
+  // Kalshi gives every 15-minute window its own page: /markets/<series>/<slug>/<series>-<close time in ET, YYMONDDHHMM>
+  const KALSHI_SERIES = { "BTC-USD": ["kxbtc15m", "btc-15-min"], "ETH-USD": ["kxeth15m", "eth-15-min"],
+                          "SOL-USD": ["kxsol15m", "solana-15-minutes"] };
+  function kalshiUrl(coin, t, eventTicker) {
+    const [series, slug] = KALSHI_SERIES[coin];
+    if (!eventTicker) {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "2-digit", month: "short",
+        day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date((t + 900) * 1000)).map((p) => [p.type, p.value]));
+      eventTicker = `${series}-${parts.year}${parts.month}${parts.day}${parts.hour}${parts.minute}`;
+    }
+    return `https://kalshi.com/markets/${series}/${slug}/${eventTicker.toLowerCase()}`;
+  }
   let sig = null, sigTimer = null;
   function parseSignal() {
     if (!location.hash.startsWith("#signal=")) return null;
@@ -336,7 +346,7 @@
       <div class="sig-note">${escH(s.b || "")}</div>
       <div class="sig-btns">
         ${closed ? "" : `<button class="w-place ${s.d}" data-sig="practice">Practice bet ${s.d.toUpperCase()}</button>`}
-        <a class="chip sig-k" href="${KALSHI_URL[s.c]}" target="_blank" rel="noopener">Open ${name} on Kalshi ↗</a>
+        <a class="chip sig-k" href="${kalshiUrl(s.c, s.t, s.k)}" target="_blank" rel="noopener">Open this ${name} window on Kalshi ↗</a>
       </div>
       <div class="w-fine">"Price now" is estimated from Coinbase's live price; Kalshi's real price can differ. Practice only, not financial advice.</div>
     </div>`;

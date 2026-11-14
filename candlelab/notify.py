@@ -149,7 +149,10 @@ def send_strict_alerts(window_ts):
         lines.append("Seeing this late? Re-check the price: still 55¢ or less with 5+ min left, or skip. Never more than 2x.")
         lines.append("Practice only. Not financial advice.")
         try:
-            details = {"c": r.coin, "d": r.direction, "t": int(window_ts), "q": q, "y": yb, "a": ya, "w": round(win, 4),
+            ev = None
+            if r.coin in ks.index and isinstance(ks.at[r.coin, "ticker"], str):
+                ev = ks.at[r.coin, "ticker"].rsplit("-", 1)[0]          # market ticker -> event ticker (the page)
+            details = {"c": r.coin, "d": r.direction, "t": int(window_ts), "k": ev, "q": q, "y": yb, "a": ya, "w": round(win, 4),
                        "m": mult, "e": None if edge is None else round(edge, 4), "l": label, "b": basis,
                        "bt": None if not (s and s.get("calls")) else [round(s["hit_rate"], 4), int(s["calls"])],
                        "ap": None if ap is None else [round(float(ap["cost"]), 2), round(float(ap["price"]), 2)]}
