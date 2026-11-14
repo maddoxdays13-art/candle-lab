@@ -265,6 +265,24 @@ def _autopilot_summary():
         return {"error": str(e)}
 
 
+def strict_check(long_df):
+    """Strict mode on the last third of each coin's history (the Check part: never used to set its cutoffs)."""
+    out, tot = {}, [0, 0]
+    for coin in COINS:
+        g = long_df[(long_df["model"] == "strict") & (long_df["coin"] == coin)].sort_values("ts")
+        if g.empty:
+            continue
+        g = g.iloc[int(len(g) * 2 / 3):]
+        c = g[g["direction"] != 0]
+        h, n = int((c["direction"] == c["actual_dir"]).sum()), len(c)
+        lo, hi = wilson(h, n)
+        out[coin] = {"hits": h, "calls": n, "hit_rate": h / n if n else None, "ci_low": lo, "ci_high": hi}
+        tot[0] += h; tot[1] += n
+    lo, hi = wilson(*tot)
+    out["ALL"] = {"hits": tot[0], "calls": tot[1], "hit_rate": tot[0] / tot[1] if tot[1] else None, "ci_low": lo, "ci_high": hi}
+    return out
+
+
 def build_backtest():
     from .backtest import load_coin
     parts = []
@@ -291,6 +309,7 @@ def build_backtest():
         "coins": section(long_df, window=960),
     }
     out["coin_compare"] = coin_compare(out["coins"])
+    out["strict_check"] = strict_check(long_df)
     out["timeframes"] = build_timeframes()
     write_calibration_csv(out["coins"], BACKTEST_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "backtest.json", clean_nans(out))

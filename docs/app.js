@@ -166,10 +166,10 @@ function performanceSection(d, kind) {
   const coinData = d.coins[state.coin];
   const pooled = state.coin === "ALL";
   let html = coinChips();
-  if (kind === "live") html += priceSection();
+  if (kind === "live") html += priceSection() + strictByCoinSection();
   html += `<h2>Matchups${pooled ? " · all coins pooled" : ""}</h2>${matchups(coinData)}`;
   html += coinCompareSection(d.coin_compare);
-  if (kind === "backtest") html += timeframesSection(d.timeframes);
+  if (kind === "backtest") html += strictByCoinSection() + timeframesSection(d.timeframes);
   html += `<p class="note">Edge = Kronos hit rate minus the baseline's, in percentage points. "Beats it" needs a one-sided p-value under 0.05; anything else could be luck.</p>`;
   html += `<h2>Scoreboard</h2>${pooled ? "" : feeChips()}${scoreboard(coinData, pooled)}`;
   html += `<p class="note">Paper P&amp;L: buy when the call is "up", sit in cash otherwise, paying <b>${feeInfo().pct} on every buy and every sell</b> (${feeInfo().name}).
@@ -182,6 +182,43 @@ function performanceSection(d, kind) {
       <div><h2>Paper P&amp;L vs holding · ${feeInfo().name} fees</h2><div class="chartbox"><canvas id="pnlChart"></canvas></div></div></div>`;
   }
   return html;
+}
+
+/* ---------- ⚡ Strict mode by coin ---------- */
+function strictByCoinSection() {
+  const L = state.data.live, B = state.data.backtest, K = state.data.kalshi_style;
+  if (!L && !B) return "";
+  const coins = ["BTC-USD", "ETH-USD", "SOL-USD", "ALL"];
+  const fmtRate = (h, n) => (n ? h / n : null);
+  const cell = (rate, n, lo, hi, extra = "") => {
+    if (!n) return `<td class="muted">–</td>`;
+    const c = rate > 0.52 ? "pos" : rate < 0.5 ? "neg" : "";
+    return `<td><b class="${c}">${pct(rate)}</b> <span class="muted">· ${num(n)}${lo != null ? ` · ${pct(lo)}–${pct(hi)}` : ""}</span>${extra}</td>`;
+  };
+  const rows = coins.map((c) => {
+    const b = B?.coins?.[c]?.models?.strict?.summary;
+    const ck = B?.strict_check?.[c];
+    const ks = c === "ALL" ? K?.pooled?.["Strict mode"]?.kalshi_rule : K?.coins?.[c]?.strategies?.["Strict mode"]?.kalshi_rule;
+    const l = L?.coins?.[c]?.models?.strict?.summary;
+    const kc = L?.kalshi?.coins?.[c];
+    const kp = kc?.strict?.[state.venue];
+    const name = c === "ALL" ? "All coins" : c.replace("-USD", "");
+    return `<tr${c === "ALL" ? ' class="allrow"' : ""}><td><b>${name}</b></td>
+      ${cell(b?.hit_rate, b?.calls, b?.ci_low, b?.ci_high)}
+      ${cell(ck?.hit_rate, ck?.calls, ck?.ci_low, ck?.ci_high)}
+      ${cell(ks?.hit_rate, ks?.calls, ks?.ci_low, ks?.ci_high)}
+      ${cell(l?.hit_rate, l?.calls, l?.ci_low, l?.ci_high, l?.calls ? `<div class="muted" style="font-size:12px">${l.hits} right, ${l.calls - l.hits} wrong</div>` : "")}
+      <td>${kc?.strict_bets ? `${kc.strict_hits}/${kc.strict_bets} · <b class="${cls(kp)}">${money(kp)}</b>` : `<span class="muted">–</span>`}</td></tr>`;
+  }).join("");
+  const lv = coins.slice(0, 3).map((c) => [c, L?.coins?.[c]?.models?.strict?.summary]).filter(([, x]) => x?.calls);
+  const best = lv.length ? lv.reduce((a, b) => (b[1].hit_rate > a[1].hit_rate ? b : a)) : null;
+  const liveN = L?.coins?.ALL?.models?.strict?.summary?.calls || 0;
+  return `<h2>⚡ Strict mode by coin</h2>
+    <div class="tablewrap"><table><thead><tr><th>Coin</th><th>Backtest (2½ years)</th><th>Check part (fresh history)</th><th>Kalshi-rule test (last 90 days)</th><th>Live so far</th><th>Live at Kalshi's real prices (${esc(venueInfo().name)}, 1 contract each)</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <p class="note">Each cell: hit rate · picks · 95% range. Green = above the ~52% break-even, red = below 50%.
+      ${best ? `Best live coin so far: <b>${esc(best[0].replace("-USD", ""))}</b> (${best[1].hits} of ${best[1].calls}). ` : ""}
+      ${liveN < 300 ? `Live samples are still small (${liveN} picks in all), so big differences between coins can easily be luck; the backtest columns are the more reliable guide for now.` : "Live samples are getting large enough to compare coins."}</p>`;
 }
 
 /* ---------- Timeframes compared ---------- */
@@ -581,6 +618,7 @@ async function render() {
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === state.tab));
   const main = $("#main");
   const d = ["candlesticks", "trials"].includes(state.tab) ? null : state.tab === "bets" ? await load("live") : await load(state.tab);
+  if (state.tab === "live" || state.tab === "backtest") await Promise.all([load("live"), load("backtest"), load("kalshi_style")]);
   try {
     if (state.tab === "live") { main.innerHTML = pageHead("live") + renderLive(d); if (d) { drawPerformanceCharts(d); startPrices(); } }
     if (state.tab === "backtest") { main.innerHTML = pageHead("backtest") + renderBacktest(d); if (d?.range?.first != null) drawPerformanceCharts(d); }
