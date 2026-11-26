@@ -505,6 +505,7 @@ const HEADS = {
   experiments: ["Experiments", "Champion vs challengers, tested every night"],
   trials: ["Trials", "What would have happened if we changed some stuff? Re-run the backtest with different settings, instantly"],
   bets: ["Bets", "15-minute “up or down” prediction markets (Kalshi, Robinhood, Polymarket): paper bets on Kronos's calls, and Kronos vs the betting crowd"],
+  strict: ["Strict signals", "Kronos's pickiest calls on every coin Kalshi runs a 15-minute market for, scored at Kalshi's real prices so you can see if they make money"],
   rule12: ["12-minute rule", "Does tailing whatever the 15-minute candle is doing at minute 12 really win ~87% of the time, and would it make money at real prices?"],
   streaks: ["Streaks", "After a coin goes up (or down) several candles in a row, does the next candle keep going or reverse?"],
   candlesticks: ["Candlesticks", "A cheat sheet: what every common candlestick pattern looks like and what traders read into it"],
@@ -629,6 +630,7 @@ async function render() {
     if (state.tab === "trials") { main.innerHTML = pageHead("trials") + renderTrials(); bindTrials(); drawTrials(); }
     if (state.tab === "rule12") { main.innerHTML = pageHead("rule12") + renderRule12(); bindRule12(); }
     if (state.tab === "streaks") { main.innerHTML = pageHead("streaks") + renderStreaks(); bindStreaks(); }
+    if (state.tab === "strict") { main.innerHTML = pageHead("strict") + renderStrict(d); drawStrict(d); }
     if (state.tab === "bets") { const bt = await load("backtest"); await load("kalshi_style"); main.innerHTML = pageHead("bets") + renderBets(d, bt); drawBetCharts(d, bt); }
   } catch (e) {
     console.error(e);

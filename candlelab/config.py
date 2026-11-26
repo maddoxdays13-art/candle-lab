@@ -5,7 +5,9 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-COINS = ["BTC-USD", "ETH-USD", "SOL-USD"]
+COINS = ["BTC-USD", "ETH-USD", "SOL-USD"]   # research coins: experiments, timeframes, Live/Backtest tabs
+# Every coin with a Kalshi 15-minute up/down market (checked Nov 2026). The extra ones only run for Strict signals.
+STRICT_COINS = COINS + ["XRP-USD", "DOGE-USD", "BNB-USD", "HYPE-USD", "NEAR-USD", "ZEC-USD"]
 GRANULARITY = 900  # 15-minute candles, in seconds
 FEE = 0.001  # 0.1% per trade (charged on every position change); used by the experiments
 # Fee levels the dashboard can switch between (cost per buy and per sell). Checked Nov 2026; they change often.

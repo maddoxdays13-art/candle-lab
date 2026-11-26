@@ -1,6 +1,6 @@
 name: Backtest
 
-# Manual. Each run works for up to `max_minutes` per coin (3 coins in parallel),
+# Manual. Each run works for up to `max_minutes` per coin (all coins in parallel),
 # commits what it finished, and re-launches itself until it reaches the present.
 on:
   workflow_dispatch:
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        coin: [BTC-USD, ETH-USD, SOL-USD]
+        coin: [BTC-USD, ETH-USD, SOL-USD, XRP-USD, DOGE-USD, BNB-USD, HYPE-USD, NEAR-USD, ZEC-USD]   # all Kalshi 15-min coins
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.ref_name }}" }
@@ -98,7 +98,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: python -m candlelab.site --only backtest
       - run: |
-          scripts/commit_and_push.sh "backtest: dashboard data" docs/data/backtest.json docs/data/trials-*.json results/backtest/calibration.csv
+          scripts/commit_and_push.sh "backtest: dashboard data" docs/data/backtest.json docs/data/trials-*.json results/backtest/calibration.csv results/backtest/strict.json config/strict.json
       - uses: actions/download-artifact@v4
         with: { pattern: status-*, path: status, merge-multiple: true }
       - name: Start the next chunk if any coin is unfinished

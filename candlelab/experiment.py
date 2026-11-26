@@ -231,7 +231,7 @@ def gate(date):
 def live_comparison(since_ts):
     from .live import load_live
     df = load_live()
-    df = df[(df["candle_ts"] >= since_ts) & df["correct"].notna()]
+    df = df[(df["candle_ts"] >= since_ts) & df["correct"].notna() & df["coin"].isin(COINS)]
     out = {}
     for m in ["kronos", "kronos_prev"]:
         g = df[df["model"] == m]
@@ -244,7 +244,7 @@ def live_recent(days):
     from .live import load_live
     df = load_live()
     since = datetime.now(timezone.utc).timestamp() - days * 86400
-    g = df[(df["model"] == "kronos") & (df["candle_ts"] >= since) & df["correct"].notna()]
+    g = df[(df["model"] == "kronos") & (df["candle_ts"] >= since) & df["correct"].notna() & df["coin"].isin(COINS)]
     n = len(g)
     return {"calls": n, "hit_rate": float(g["correct"].mean()) if n else None}
 

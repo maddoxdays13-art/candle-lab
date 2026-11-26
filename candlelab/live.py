@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from . import data, engine, signals
-from .config import COINS, GRANULARITY, LIVE_DIR, load_champion_state, settings_id
+from .config import STRICT_COINS, GRANULARITY, LIVE_DIR, load_champion_state, settings_id
 
 LIVE_COLS = ["run_at", "coin", "model", "settings_id", "candle_ts", "candle_time",
              "last_close", "pred_close", "direction", "confidence", "source",
@@ -80,7 +80,7 @@ def run(state=None):
     expected_target = data.last_closed_open_ts() + GRANULARITY
     new_rows = []
 
-    for coin in COINS:
+    for coin in STRICT_COINS:
         print(f"{coin}:")
         try:
             candles, source = data.fetch_recent(coin, max(need, 300))

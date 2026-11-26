@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from . import data, engine, signals
-from .config import BACKTEST_DIR, BACKTEST_FILE, COINS, GRANULARITY, load_json, save_json, settings_id
+from .config import BACKTEST_DIR, BACKTEST_FILE, COINS, STRICT_COINS, GRANULARITY, load_json, save_json, settings_id
 
 BT_COLS = ["ts", "last_close", "prev_close", "close", "pred_close", "p_up",
            "kronos", "kronos_conf", "momentum", "coin_flip", "always_up"]
@@ -99,7 +99,7 @@ def run_coin(coin, cfg, deadline, h="15m"):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--coin", choices=COINS, help="one coin (default: all)")
+    ap.add_argument("--coin", choices=STRICT_COINS, help="one coin (default: all)")
     ap.add_argument("--max-minutes", type=float, default=1e9, help="stop after this long")
     ap.add_argument("--reset", action="store_true", help="discard saved results if config changed")
     ap.add_argument("--no-site", action="store_true", help="skip rebuilding dashboard data")

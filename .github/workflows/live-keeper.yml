@@ -34,7 +34,7 @@ jobs:
           while [ $SECONDS -lt $end ]; do
             git pull -q --rebase origin "${GITHUB_REF_NAME}" || true   # latest code + champion settings
             python -m candlelab.live || echo "logger failed this round; will retry next candle"
-            scripts/commit_and_push.sh "live: $(date -u +'%Y-%m-%d %H:%M') UTC" results/live docs/data/live.json || true
+            scripts/commit_and_push.sh "live: $(date -u +'%Y-%m-%d %H:%M') UTC" results/live docs/data/live.json docs/data/strict.json || true
 
             # Nightly experiment at 07:15-07:30 UTC, once per day (don't depend on cron for it either).
             if [ "$(date -u +%H)" = "07" ] && [ "$(date -u +%M)" -ge 15 ] && [ "$(date -u +%M)" -lt 45 ]; then

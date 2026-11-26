@@ -19,7 +19,9 @@ import requests
 from .config import LIVE_DIR
 
 API = "https://api.elections.kalshi.com/trade-api/v2"
-SERIES = {"BTC-USD": "KXBTC15M", "ETH-USD": "KXETH15M", "SOL-USD": "KXSOL15M"}
+SERIES = {"BTC-USD": "KXBTC15M", "ETH-USD": "KXETH15M", "SOL-USD": "KXSOL15M", "XRP-USD": "KXXRP15M",
+          "DOGE-USD": "KXDOGE15M", "BNB-USD": "KXBNB15M", "HYPE-USD": "KXHYPE15M", "NEAR-USD": "KXNEAR15M",
+          "ZEC-USD": "KXZEC15M"}
 COLS = ["coin", "candle_ts", "ticker", "logged_at", "secs_into_window", "yes_bid", "yes_ask",
         "no_bid", "no_ask", "last", "strike", "result", "final_value"]
 HEADERS = {"User-Agent": "candle-lab/1.0 (paper research; read-only)"}

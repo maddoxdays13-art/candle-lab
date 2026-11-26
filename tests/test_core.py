@@ -100,14 +100,14 @@ def test_live_dedup_and_scoring(tmp_path, monkeypatch):
     state = {"champion": dict(SETTINGS, id="x"), "previous": None, "probation": None}
 
     df = live.run(state)
-    assert len(df) == 3 * 4 and df["actual_close"].isna().all()
+    assert len(df) == len(config.STRICT_COINS) * 4 and df["actual_close"].isna().all()
     df = live.run(state)  # same candle again: nothing new
-    assert len(df) == 12
+    assert len(df) == len(config.STRICT_COINS) * 4
 
     # The candle closes; the next run scores it and logs the following candle.
     now["t"] += 900
     df = live.run(state)
-    assert len(df) == 24
+    assert len(df) == len(config.STRICT_COINS) * 8
     first = df[df["candle_ts"] == c["ts"].iloc[-1]]
     assert first["actual_close"].notna().all()
     k = first[first["model"] == "kronos"].iloc[0]

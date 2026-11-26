@@ -1,13 +1,14 @@
 """Build the JSON files the dashboard (docs/) reads:  python -m candlelab.site"""
 import json
+import time
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 
-from .config import (BACKTEST_DIR, CONFIG_DIR, LIVE_DIR, COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
+from .config import (BACKTEST_DIR, CONFIG_DIR, LIVE_DIR, COINS, STRICT_COINS, EXPERIMENT_DIR, EXPERIMENT_FILE, SITE_DATA_DIR,
                      load_champion_state, load_json, save_json)
-from .stats import (bet_fee, bet_pnl, calibration, clean_nans, coins_differ, compare, rolling_series,
+from .stats import (bet_fee, bet_pnl, calibration, clean_nans, coins_differ, compare, even_odds_bets, rolling_series,
                     summarize, wilson)
 from .config import BET_VENUES, FEE_PRESETS
 
@@ -104,6 +105,7 @@ def kalshi_section(pred):
     """Kronos vs the Kalshi crowd on the same 15-minute windows (live only)."""
     from . import kalshi
     k = kalshi.load()
+    k = k[k["coin"].isin(COINS)]   # the Strict page covers the other Kalshi coins
     out = {"windows": int(len(k)), "settled": 0, "coins": {}, "recent": [], "curve": [], "now": {}}
     if k.empty:
         return out
@@ -195,7 +197,9 @@ def write_calibration_csv(sec, path):
 
 def build_live():
     from .live import load_live
-    df = load_live()
+    df_all = load_live()
+    build_strict(df_all)
+    df = df_all[df_all["coin"].isin(COINS)]   # the research tabs stay on BTC, ETH and SOL
     scored = df[df["actual_close"].notna()].copy()
     long_df = pd.DataFrame({
         "coin": scored["coin"], "model": scored["model"], "ts": scored["candle_ts"].astype(int),
@@ -257,6 +261,105 @@ def build_live():
     save_json(SITE_DATA_DIR / "live.json", clean_nans(out))
 
 
+def _strict_stats(called):
+    """Hit rate and even-odds (50c) bet P&L for rows of Strict picks (direction, actual_dir)."""
+    h, n = int((called["direction"] == called["actual_dir"]).sum()), len(called)
+    lo, hi = wilson(h, n)
+    return {"calls": n, "hits": h, "hit_rate": h / n if n else None, "ci_low": lo, "ci_high": hi,
+            "bets": even_odds_bets(called)}
+
+
+def strict_backtest():
+    """Strict mode's backtest record on every Kalshi coin -> results/backtest/strict.json.
+    A coin with no cutoff yet gets one once its backtest has caught up: the 90th percentile of Kronos's
+    predicted move on its calls in the FIRST 2/3 of the backtest (same rule as the original three).
+    Existing cutoffs are never changed."""
+    from .backtest import load_coin
+    cfg = strict_cfg()
+    cuts = cfg["min_move_pct"].setdefault("15m", {})
+    out, checks = {}, []
+    for coin in STRICT_COINS:
+        bt = load_coin(coin)
+        if bt.empty:
+            continue
+        bt = bt.sort_values("ts").drop_duplicates("ts").reset_index(drop=True)
+        caught_up = bool(bt["ts"].iloc[-1] >= time.time() - 2 * 86400)
+        if coin not in cuts and caught_up:
+            first = bt.iloc[:int(len(bt) * 2 / 3)]
+            mv = (first["pred_close"] / first["last_close"] - 1).abs() * 100
+            cuts[coin] = round(float(np.percentile(mv[first["kronos"] != 0], 90)), 4)
+            save_json(CONFIG_DIR / "strict.json", cfg)
+            print(f"strict cutoff for {coin}: {cuts[coin]}%")
+        bt = add_derived(bt, coin)
+        lg = pd.DataFrame({"ts": bt["ts"].astype(int), "direction": bt["strict"].astype(int),
+                           "actual_dir": np.where(bt["close"] > bt["last_close"], 1, -1)})
+        check = lg.iloc[int(len(lg) * 2 / 3):]   # never used to set the cutoff
+        check = check[check["direction"] != 0]
+        checks.append(check)
+        out[coin] = {"from": int(bt["ts"].iloc[0]), "to": int(bt["ts"].iloc[-1]), "caught_up": caught_up,
+                     "check_from": int(lg["ts"].iloc[int(len(lg) * 2 / 3)]), "check": _strict_stats(check)}
+    if checks:
+        out["ALL"] = {"check": _strict_stats(pd.concat(checks))}
+    save_json(BACKTEST_DIR / "strict.json", clean_nans(out))
+    return out
+
+
+def build_strict(df):
+    """docs/data/strict.json: Strict signals on every Kalshi coin, scored live and at Kalshi's real prices."""
+    from . import kalshi
+    k = df[df["model"] == "kronos"]
+    mom = df[df["model"] == "momentum"][["coin", "candle_ts", "direction"]].rename(columns={"direction": "mom"})
+    j = k.merge(mom, on=["coin", "candle_ts"], how="left")
+    j = j[j["direction"].isin(["up", "down"])]
+    parts = []
+    for coin, g in j.groupby("coin"):
+        mv = (g["pred_close"] / g["last_close"] - 1).abs() * 100
+        parts.append(g[strict_mask(g["direction"].map(DIR_NUM), g["confidence"], g["mom"].map(DIR_NUM).fillna(0), mv, coin)]
+                     .assign(move=mv))
+    sig = pd.concat(parts, ignore_index=True) if parts else j.iloc[:0].assign(move=np.nan)
+    ks = kalshi.load()[["coin", "candle_ts", "ticker", "yes_ask", "no_ask", "result"]]
+    sig = sig.merge(ks, on=["coin", "candle_ts"], how="left").sort_values("candle_ts")
+    sig["price"] = pd.to_numeric(pd.Series(np.where(sig["direction"] == "up", sig["yes_ask"], sig["no_ask"]), index=sig.index),
+                                 errors="coerce")
+    sig["settled"] = sig["result"].isin(["yes", "no"]) & sig["price"].between(0.01, 0.99)
+    sig["won"] = (sig["result"] == "yes") == (sig["direction"] == "up")
+    for v in BET_VENUES:
+        sig[v] = np.where(sig["settled"], bet_pnl(sig["won"], sig["price"].fillna(0.5), v), np.nan)
+
+    def stats(g):
+        sc = g[g["correct"].notna()]
+        h, n = int(sc["correct"].sum()), len(sc)
+        b = g[g["settled"]]
+        bh, bn = int(b["won"].sum()), len(b)
+        lo, hi = wilson(h, n)
+        blo, bhi = wilson(bh, bn)
+        return {"signals": int(len(g)),
+                "live": {"hits": h, "calls": n, "hit_rate": h / n if n else None, "ci_low": lo, "ci_high": hi},
+                "kalshi": {"bets": bn, "hits": bh, "hit_rate": bh / bn if bn else None, "ci_low": blo, "ci_high": bhi,
+                           "avg_price": float(b["price"].mean()) if bn else None,
+                           "breakeven": {v: float((b["price"] + bet_fee(v, b["price"])).mean()) if bn else None for v in BET_VENUES},
+                           "pnl": {v: float(b[v].sum()) for v in BET_VENUES}}}
+
+    bt = load_json(BACKTEST_DIR / "strict.json", {})
+    cuts = strict_cfg()["min_move_pct"].get("15m", {})
+    coins = {c: {**stats(sig[sig["coin"] == c]), "cutoff": cuts.get(c), "backtest": bt.get(c)} for c in STRICT_COINS}
+    coins["ALL"] = {**stats(sig), "backtest": bt.get("ALL")}
+    st = sig[sig["settled"]]
+    cum = st[list(BET_VENUES)].cumsum()
+    step = max(1, len(st) // 300)
+    curve = [{"t": int(t), **{v: round(float(cum.iloc[i][v]), 2) for v in BET_VENUES}}
+             for i, t in enumerate(st["candle_ts"]) if i % step == 0 or i == len(st) - 1]
+    recent = [{"t": int(r.candle_ts), "coin": r.coin, "dir": r.direction, "conf": r.confidence, "move": r.move,
+               "ok": None if pd.isna(r.correct) else int(r.correct), "price": None if pd.isna(r.price) else r.price,
+               "result": ("won" if r.won else "lost") if r.settled else None,
+               "event": r.ticker.rsplit("-", 1)[0] if isinstance(r.ticker, str) else None,
+               **{v: None if pd.isna(getattr(r, v)) else round(float(getattr(r, v)), 4) for v in BET_VENUES}}
+              for r in sig.tail(200).iloc[::-1].itertuples()]
+    save_json(SITE_DATA_DIR / "strict.json", clean_nans({
+        "updated_at": _now(), "coin_list": STRICT_COINS, "coins": coins, "curve": curve, "recent": recent,
+        "rules": strict_cfg()}))
+
+
 def _autopilot_summary():
     try:
         from . import autopilot
@@ -310,6 +413,7 @@ def build_backtest():
     }
     out["coin_compare"] = coin_compare(out["coins"])
     out["strict_check"] = strict_check(long_df)
+    strict_backtest()
     out["timeframes"] = build_timeframes()
     write_calibration_csv(out["coins"], BACKTEST_DIR / "calibration.csv")
     save_json(SITE_DATA_DIR / "backtest.json", clean_nans(out))
