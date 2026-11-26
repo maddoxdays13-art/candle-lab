@@ -114,8 +114,8 @@ def send_strict_alerts(window_ts):
         ks = ks[ks["candle_ts"] == window_ts].set_index("coin")
     except Exception:  # noqa: BLE001
         ks = pd.DataFrame()
-    bt = site.load_json(site.SITE_DATA_DIR / "backtest.json", {})
-    live = site.load_json(site.SITE_DATA_DIR / "live.json", {})
+    # Every Kalshi coin's Strict record (backtest check part + live), from the Strict page's data.
+    rec = site.load_json(site.SITE_DATA_DIR / "strict.json", {}).get("coins", {})
     rows = []
     for r in j.itertuples():
         mv = abs(r.pred_close / r.last_close - 1) * 100
@@ -127,8 +127,8 @@ def send_strict_alerts(window_ts):
         lines = []
         yb = ya = q = None
         size, price_txt, label, mult, edge = "", "", "", None, None
-        s = (bt.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary")
-        lv = (live.get("coins", {}).get(r.coin, {}).get("models", {}).get("strict", {}) or {}).get("summary") or {}
+        s = ((rec.get(r.coin) or {}).get("backtest") or {}).get("check")
+        lv = (rec.get(r.coin) or {}).get("live") or {}
         win, basis = win_rate_for(s, lv)
         if r.coin in ks.index and pd.notna(ks.at[r.coin, "yes_bid"]):
             yb, ya = float(ks.at[r.coin, "yes_bid"]), float(ks.at[r.coin, "yes_ask"])
@@ -141,7 +141,7 @@ def send_strict_alerts(window_ts):
                          f"Do: bet {side} on {name}, {label} (your side costs {round(q * 100)}¢, edge ≈ +{edge * 100:.0f}¢)")
         lines.append(f"Window {_local(window_ts)}–{_local(window_ts + 900)} ET · closes in {left // 60}:{left % 60:02d}")
         if s and s.get("calls"):
-            lines.append(f"Strict mode backtest on {name}: right {s['hit_rate'] * 100:.1f}% of {s['calls']:,} picks")
+            lines.append(f"Strict mode backtest (untuned part) on {name}: right {s['hit_rate'] * 100:.1f}% of {s['calls']:,} picks")
         ap = _autopilot_bet(r.coin, window_ts)
         if ap is not None:
             lines.append(f"🌙 Autopilot bet ${ap['cost']:.2f} {ap['side'].upper()} at {round(ap['price'] * 100)}¢ (practice)")
@@ -178,7 +178,7 @@ def main():
     a = ap.parse_args()
     if a.test:
         ok = _post("✅ Candle Lab alerts are working",
-                   "You'll get a notification like this whenever Strict mode fires (about 7 a day across BTC, ETH and SOL).\n"
+                   "You'll get a notification like this whenever Strict mode fires on any of the 9 Kalshi coins.\n"
                    "Practice only. Not financial advice.", tags="white_check_mark", priority="default")
         print("sent" if ok else "not sent (set NTFY_TOPIC)")
 
