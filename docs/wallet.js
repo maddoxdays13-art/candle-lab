@@ -294,10 +294,14 @@
 
   /* ---------- Signal card: what you see after tapping a phone alert ---------- */
   // Kalshi gives every 15-minute window its own page: /markets/<series>/<slug>/<series>-<close time in ET, YYMONDDHHMM>
+  // Same table as candlelab/kalshi.py SLUGS. Alerts also carry the exact URL (s.u); this covers older alerts.
   const KALSHI_SERIES = { "BTC-USD": ["kxbtc15m", "btc-15-min"], "ETH-USD": ["kxeth15m", "eth-15-min"],
-                          "SOL-USD": ["kxsol15m", "solana-15-minutes"] };
+    "SOL-USD": ["kxsol15m", "sol-15-min"], "XRP-USD": ["kxxrp15m", "xrp-15-min"], "DOGE-USD": ["kxdoge15m", "doge-15-min"],
+    "BNB-USD": ["kxbnb15m", "bnb-15-min"], "HYPE-USD": ["kxhype15m", "hype-15-min"], "NEAR-USD": ["kxnear15m", "near-15m"],
+    "ZEC-USD": ["kxzec15m", "zcash-15min"] };
   function kalshiUrl(coin, t, eventTicker) {
-    const [series, slug] = KALSHI_SERIES[coin];
+    const series = KALSHI_SERIES[coin]?.[0] || "kx" + coin.replace("-USD", "").toLowerCase() + "15m";
+    const slug = KALSHI_SERIES[coin]?.[1] || "x";   // Kalshi redirects an unknown slug to the right page
     if (!eventTicker) {
       const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "2-digit", month: "short",
         day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date((t + 900) * 1000)).map((p) => [p.type, p.value]));
@@ -346,7 +350,7 @@
       <div class="sig-note">${escH(s.b || "")}</div>
       <div class="sig-btns">
         ${closed ? "" : `<button class="w-place ${s.d}" data-sig="practice">Practice bet ${s.d.toUpperCase()}</button>`}
-        <a class="chip sig-k" href="${kalshiUrl(s.c, s.t, s.k)}" target="_blank" rel="noopener">Open this ${name} window on Kalshi ↗</a>
+        <a class="chip sig-k" href="${escH(s.u || kalshiUrl(s.c, s.t, s.k))}" target="_blank" rel="noopener">Open this ${name} window on Kalshi ↗</a>
         <div class="sig-alt">
           <a class="chip" href="https://kalshi.com/category/crypto/frequency/fifteen_min" target="_blank" rel="noopener">All 15-min crypto markets ↗</a>
           <button class="chip" data-sig="copy">📋 Copy link</button>
@@ -476,7 +480,7 @@
       const sg = e.target.closest("[data-sig]");
       if (sg) {
         if (sg.dataset.sig === "copy" && sig) {
-          const url = kalshiUrl(sig.c, sig.t, sig.k);
+          const url = sig.u || kalshiUrl(sig.c, sig.t, sig.k);
           (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
             () => toast("Kalshi link copied: paste it into Safari or Chrome"), () => prompt("Copy this Kalshi link:", url));
           return;

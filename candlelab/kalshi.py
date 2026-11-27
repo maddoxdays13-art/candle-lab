@@ -12,6 +12,7 @@ settles the market.
 """
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
@@ -22,6 +23,10 @@ API = "https://api.elections.kalshi.com/trade-api/v2"
 SERIES = {"BTC-USD": "KXBTC15M", "ETH-USD": "KXETH15M", "SOL-USD": "KXSOL15M", "XRP-USD": "KXXRP15M",
           "DOGE-USD": "KXDOGE15M", "BNB-USD": "KXBNB15M", "HYPE-USD": "KXHYPE15M", "NEAR-USD": "KXNEAR15M",
           "ZEC-USD": "KXZEC15M"}
+# Kalshi's web page for each series: kalshi.com/markets/<series>/<slug>/<event>. Read off kalshi.com Nov 2026.
+SLUGS = {"BTC-USD": "btc-15-min", "ETH-USD": "eth-15-min", "SOL-USD": "sol-15-min", "XRP-USD": "xrp-15-min",
+         "DOGE-USD": "doge-15-min", "BNB-USD": "bnb-15-min", "HYPE-USD": "hype-15-min", "NEAR-USD": "near-15m",
+         "ZEC-USD": "zcash-15min"}
 COLS = ["coin", "candle_ts", "ticker", "logged_at", "secs_into_window", "yes_bid", "yes_ask",
         "no_bid", "no_ask", "last", "strike", "result", "final_value"]
 HEADERS = {"User-Agent": "candle-lab/1.0 (paper research; read-only)"}
@@ -59,6 +64,14 @@ def fetch_window(coin, window_ts):
         if _ts(m["open_time"]) == window_ts:
             return m
     return None
+
+
+def page_url(coin, window_ts):
+    """Kalshi's page for this coin's 15-minute window. The event ticker is the series plus the window's
+    close time in New York time, e.g. KXBNB15M-26NOV270100."""
+    close = datetime.fromtimestamp(int(window_ts) + 900, tz=ZoneInfo("America/New_York"))
+    series = SERIES[coin].lower()
+    return f"https://kalshi.com/markets/{series}/{SLUGS[coin]}/{series}-{close.strftime('%y%b%d%H%M').lower()}"
 
 
 def month_of(ts):

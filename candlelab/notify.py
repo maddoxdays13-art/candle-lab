@@ -31,7 +31,7 @@ def signal_link(details):
     return SITE + "#signal=" + base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
-def _post(title, body, tags="zap", priority="high", click=None):
+def _post(title, body, tags="zap", priority="high", click=None, kalshi=None):
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     if not topic:
         print("  alerts: NTFY_TOPIC not set; skipping")
@@ -40,7 +40,8 @@ def _post(title, body, tags="zap", priority="high", click=None):
     click = click or SITE
     r = requests.post("https://ntfy.sh/", json={"topic": topic, "title": title, "message": body,
                                                 "tags": tags.split(","), "priority": prio, "click": click,
-                                                "actions": [{"action": "view", "label": "Open signal card", "url": click}]},
+                                                "actions": ([{"action": "view", "label": "Open on Kalshi", "url": kalshi}] if kalshi else [])
+                                                           + [{"action": "view", "label": "Open signal card", "url": click}]},
                       timeout=15)
     r.raise_for_status()
     return True
@@ -152,11 +153,12 @@ def send_strict_alerts(window_ts):
             ev = None
             if r.coin in ks.index and isinstance(ks.at[r.coin, "ticker"], str):
                 ev = ks.at[r.coin, "ticker"].rsplit("-", 1)[0]          # market ticker -> event ticker (the page)
-            details = {"c": r.coin, "d": r.direction, "t": int(window_ts), "k": ev, "q": q, "y": yb, "a": ya, "w": round(win, 4),
+            kurl = kalshi.page_url(r.coin, window_ts)
+            details = {"c": r.coin, "d": r.direction, "t": int(window_ts), "k": ev, "u": kurl, "q": q, "y": yb, "a": ya, "w": round(win, 4),
                        "m": mult, "e": None if edge is None else round(edge, 4), "l": label, "b": basis,
                        "bt": None if not (s and s.get("calls")) else [round(s["hit_rate"], 4), int(s["calls"])],
                        "ap": None if ap is None else [round(float(ap["cost"]), 2), round(float(ap["price"]), 2)]}
-            if _post(f"⚡ {name} {side}{size}{price_txt} (Strict)", "\n".join(lines), click=signal_link(details),
+            if _post(f"⚡ {name} {side}{size}{price_txt} (Strict)", "\n".join(lines), click=signal_link(details), kalshi=kurl,
                      tags="zap," + ("chart_with_upwards_trend" if side == "UP" else "chart_with_downwards_trend")):
                 rows.append({"sent_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"), "coin": r.coin,
                              "candle_ts": window_ts, "direction": r.direction, "kalshi_yes_bid": yb, "kalshi_yes_ask": ya})
